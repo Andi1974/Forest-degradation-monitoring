@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/107137103.svg)](https://zenodo.org/badge/latestdoi/107137103)
+
 # Forest-degradation-monitoring
 Repository for technical data dealing with (semi)-evergreen forest degradation monitoring
 
