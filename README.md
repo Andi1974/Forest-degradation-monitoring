@@ -6,6 +6,6 @@ Repository for technical data dealing with (semi)-evergreen forest degradation m
 A Google Earth Engine (GEE) script allows deriving changes in canopy cover closure, which can be interpreted as forest degradation information.
 
 # Tutorial
-You can have access to the tutorial for the script [here]("DeltaNBR.pptx")
+You can have access to the tutorial for the script [here](DeltaNBR.pptx)
 
 
