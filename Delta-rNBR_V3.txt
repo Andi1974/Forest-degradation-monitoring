@@ -1,0 +1,1070 @@
+// *********************************************************************************************************************************************************
+//              Delta-rNBR Forest Canopy Disturbance Mapping Approach
+// *********************************************************************************************************************************************************
+// 
+//  * Project:  ReCaREDD - JRC of the European Commission
+//  * Purpose:  - Mapping canopy disturbances within (semi-)evergreen forests
+//  *           - Disturbances can be interpreted as forest degradation events
+//  *           - Close to real time monitoring of canopy cover changes possible
+//  *
+//  * Info:     Methodology described in detail in the RSE publication: (LINK)
+//  *           Further information, preprocessed data or possible updates of the GEE script: https://doi.org/10.5281/zenodo.1014728
+//                                                                                            http://forobs.jrc.ec.europa.eu/recaredd/
+//  *
+//  * Author:   Andreas Langner (SvB)
+//  * Email:    andreas-johannes.langner@ec.europa.eu, andi.langner@gmail.com
+//
+//**********************************************************************************************************************************************************
+
+
+
+// *********************************************************************************************************************************************************
+// Definition of variables that can be modified by the user ************************************************************************************************
+// *********************************************************************************************************************************************************
+
+// Investigation periods (enter in format 'yyy-mm-dd')
+var Start_base = '2015-07-01';
+var End_base = '2016-06-30';
+var Start_second = '2016-07-01';
+var End_second = '2017-06-30';
+  
+// Sensor to be used (only for overlapping periods because delta-products between different sensor types can result in increased noise)
+// In order to avoid additional noise, it is further recommended to use roughly similar numbers of scenes (per sensor type) in both investigation periods 
+var Sensor = 'L8'; // Type 'L8' for Landsat 8 if both investigation periods intersect with the following period: 04.2013 - 04.2017 (lowest white noise level) 
+                    // Type 'L7' for Landsat 7 if both investigation periods intersect with the following period: 04.1999 - ongoing (elevated white noise level)
+                    // Type 'L5' for Landsat 5 if both investigation periods intersect with the following period: 03.1984 - 11.2011 (elevated white noise level)
+                    // Type 'L78' for Landsat 7 and 8 if both investigation periods intersect with the following period: 04.2013 - ongoing (reduced noise when 'improve_L8')
+                    // Type 'L57' for Landsat 5 and 7 if both investigation periods intersect with the following period: 04.1999 - 11.2011 (elevated white noise level)
+                    // ---- Any kind of Landsat 7 or Landsat 8 data acquired after 01.05.2017 still have to be included ----
+                    // Type 'S2' for Sentinel-2 if both investigation periods intersect with the following period: 06.2015 - ongoing (artifacts from remaining clouds)
+  var improve_L8 = 'Yes'; // Options: 'Yes'; 'No' (valid only add information of L7 if Delta-NBR is above certain 'improve_threshold')
+  var improve_threshold = 0.05; // Threshold (range: 0 and 1) of L7 Delta-NBR signal above which it is taken into account for further processing
+  var sensorerror_bufferdistance = 1; // Buffer distance (in pixels) for buffering sensor errors (at least one band  <=0; generally not too high values, e.g. 3 pixels)
+  
+// Geographic area to be investigated (e.g. by loading any other geometry)
+var countryname = "CB"; // Options: see https://en.wikipedia.org/wiki/List_of_FIPS_country_codes for country codes
+  var country = ee.FeatureCollection("USDOS/LSIB/2013").filterMetadata('cc','equals',countryname); // Country border polygons of high accuracy
+
+var center = 'No'; // Options: 'Yes' to automatically center on study area; 'No' for not changing the viewer position 
+  var zoomlevel = 7; // Possible values:  1-24 (the higher the value the closer the viewer shows study site)
+
+// Here the cloud masking approach and specific variables are selected (all cloud masks can be combined and used together)
+var QB_select = 'Yes'; // Options: 'Yes'; 'No' (for using the L8-specific quality bands for cloud removal - only applicable with L8 data)
+var Fmask_select = 'Yes'; // Options: 'Yes'; 'No' (for using the GEE Fmask algorithm)
+var SimpleCloudScore_select = 'Yes'; // Options: 'Yes'; 'No' (for using the GEE SimpleCloudScore algorithm)
+var UnsureClouds_select = 'Yes'; // Options: 'Yes'; 'No' (for using a modified version of the GEE SimpleCloudScore algorithm)
+  var cloud_buffer = 500; // Buffer distance around detected clouds; possible values: 0-? meters (default value of 500 shows generally good results)
+
+// Here the forest masks and their 'forest thresholds' are selected (Roadless not yet published - thus can not yet be used)
+var forest_mask_select = '2016_Hansen_map';  // Options: 'No_forest_map'; 'Roadless_map'; '2016_Hansen_map'; '2015_Hansen_map'; '2014_Hansen_map'; '2013_Hansen_map'; '2012_Hansen_map'
+  var roadless_year = '2016_Roadless_map'; //  Options: '2016_Roadless_map'; '2015_Roadless_map'; '2014_Roadless_map'
+  var hansen_treecover = 70; // Possible 'percent tree cover' values:  0-100 (Hansen et al. 2013 'High-Resolution Global Maps of 21st-Century Forest Cover Change')
+
+// Here the kernel size in meters for the self-referencing step of the single NBR scenes is selected
+var kernel_size = 210; // Radius of circular kernel in meters; possible values:  0-? (0 refers to no self-referencing step; 210 meters delivers good results - 
+                       // however value can be adjusted)
+
+// Here variables regarding a possible disturbance-density-related filtering are selected
+var cleaning_select = 'Yes'; // Options: 'Yes'; 'No' (for using a disturbance density related cleaning of the Delta-NBR result)
+  var threshold_conservative = 0.02; // Threshold creating binary map for filtering; threshold (range: 0 and 1) has to be more conservative as final threshold
+  var kernel_clean_size = 60; // Kernel (circular) radius size in meters for the disturbance density related cleaning
+  var min_disturbances = 4; // Minimum number of crown cover disturbance events per cleaning kernel
+
+// Here the option of an export of the results is selected
+var export_select = 'No'; // Options: 'Yes'; 'No'
+  var export_select_singleNBRs = 'No'; // Options: 'Yes'; 'No'
+  var export_select_singleNBRdates = 'No'; // Options: 'Yes'; 'No'
+
+// *********************************************************************************************************************************************************
+// End of the section that can be modified by the user *****************************************************************************************************
+// *********************************************************************************************************************************************************
+
+
+
+// *********************************************************************************************************************************************************
+// Functions of the script *********************************************************************************************************************************
+// *********************************************************************************************************************************************************
+
+// Roadless map is loaded and displayed ********************************************************************************************************************
+function rgb(r,g,b){
+          var bin = r << 16 | g << 8 | b;
+          return (function(h){
+          return new Array(7-h.length).join("0")+h;
+          })(bin.toString(16).toUpperCase());
+}
+
+
+// Masking Step 1QB: Masking options for clouds (Landsat 8) ************************************************************************************************
+var Masking_1QB = function(image,cloud_buffer,BANDS,Fmask_select,SimpleCloudScore_select,UnsureClouds_select,QB_select) {
+
+var NoCloudMask = (image.select(BANDS[0]).eq(0)).and(image.select(BANDS[1]).eq(0));
+
+  if (QB_select === 'Yes'){
+    var CloudsQB = (image.select(BANDS[4]).eq(61440)).or(image.select(BANDS[4]).eq(53248)).or
+                   (image.select(BANDS[4]).eq(28672));
+  }
+  if (QB_select === 'No'){
+    var CloudsQB = NoCloudMask;
+  }
+  if (Fmask_select === 'Yes'){
+    var Fmask = ( (image.select(BANDS[2]).eq(2)).or
+                  (image.select(BANDS[2]).eq(4)));
+  }
+  if (Fmask_select === 'No'){
+    var Fmask = NoCloudMask;
+  }
+  if (SimpleCloudScore_select === 'Yes'){
+    var cloud_sure = ee.Algorithms.Landsat.simpleCloudScore(image);
+    var SimpleCloudScore = cloud_sure.select(['cloud']).gte(13);
+  }
+  if (SimpleCloudScore_select === 'No'){
+    var SimpleCloudScore = NoCloudMask;
+  }
+  if (UnsureClouds_select === 'Yes'){
+    var cloud_unsure = ee.Algorithms.Landsat.simpleCloudScore(image);
+    var UnsureClouds = cloud_unsure.select(['cloud']).lt(13).and(cloud_unsure.select(['cloud']).gte(9));//.and(image.select(BANDS[3]).lte(292));
+  }
+  if (UnsureClouds_select === 'No'){
+    var UnsureClouds = NoCloudMask;
+  }
+  
+  var maskedClouds = (NoCloudMask.or(CloudsQB).or(Fmask).or(SimpleCloudScore).or(UnsureClouds)).focal_max(cloud_buffer,'circle','meters',1);
+  return image.updateMask((maskedClouds.add(1).unmask(0)).eq(1));
+}
+
+
+// Masking Step S2_1: Masking options for clouds (Sentinel-2) (still will be worked on) ********************************************************************
+// *********************************************************************************************************************************************************
+// Copyright: ThanhGIS/ThanhGEEVN (July 2017)
+// *********************************************************************************************************************************************************
+var Masking_S2_1 = function(image,cloud_buffer,BANDS) {
+  var toa = sentinel2toa(image);
+  var cloud = sentinelCloudScore(toa);
+  var shadow = shadowMask(toa,cloud);
+  var mask = cloud.or(shadow).fastDistanceTransform(cloud_buffer,'meters').gt(cloud_buffer);
+  return image.updateMask(mask);
+
+  // Subfunction of S2 cloud masking
+  function sentinel2toa(image) {
+    var toa = image.select(['B2','B8','B9','B11','B12'])  
+       .divide(10000)
+       .set('solar_azimuth',image.get('MEAN_SOLAR_AZIMUTH_ANGLE'))
+       .set('solar_zenith', image.get('MEAN_SOLAR_ZENITH_ANGLE'))
+    return toa;
+  }
+
+  // Subfunction of S2 cloud masking
+  function sentinelCloudScore(toa) {
+    var score = toa.select('B2').multiply(toa.select('B9')).multiply(1e4)
+    var cloudScoreThreshold = 135
+    var cloud = score.gt(cloudScoreThreshold);
+    return cloud;
+  }
+
+  // Subfunction of S2 cloud masking
+  function shadowMask(toa,cloud){
+    var azi = ee.Number(toa.get('solar_azimuth'))
+    var zen = ee.Number(toa.get('solar_zenith')).multiply(1.6)
+    var azimuth =azi.multiply(Math.PI).divide(180.0).add(ee.Number(0.5).multiply(Math.PI));
+    var zenith  =ee.Number(0.5).multiply(Math.PI ).subtract(zen.multiply(Math.PI).divide(180.0));
+    var nominalScale = cloud.projection().nominalScale();
+    var cloudHeights = ee.List.sequence(200,5000,500);
+    function cloudH (cloudHeight){
+      cloudHeight = ee.Number(cloudHeight);
+      var shadowVector = zenith.tan().multiply(cloudHeight);
+      var x = azimuth.cos().multiply(shadowVector).divide(nominalScale).round();
+      var y = azimuth.sin().multiply(shadowVector).divide(nominalScale).round();
+      return cloud.changeProj(cloud.projection(), cloud.projection().translate(x, y));
+    }
+    var shadows = cloudHeights.map(cloudH);
+    var potentialShadow = ee.ImageCollection.fromImages(shadows).max();
+    var potentialShadow1 = potentialShadow.and(cloud.not());
+    var darkPixels = toa.select(['B8','B11','B12']).reduce(ee.Reducer.sum()).multiply(1e3).lt(250).rename(['dark_pixels']);
+    var shadow = potentialShadow1.and(darkPixels).rename('shadows');
+    return shadow;
+  }
+}
+// *********************************************************************************************************************************************************
+// End Copyright: ThanhGIS/ThanhGEEVN (July 2017)
+// *********************************************************************************************************************************************************
+
+
+// Masking Step 1: Masking options for clouds (any Landsat sensor) *****************************************************************************************
+var Masking_1 = function(image,cloud_buffer,BANDS,Fmask_select,SimpleCloudScore_select,UnsureClouds_select) {
+
+var NoCloudMask = (image.select(BANDS[0]).eq(0)).and(image.select(BANDS[1]).eq(0));
+
+  if (Fmask_select === 'Yes'){
+    var Fmask = ( (image.select(BANDS[2]).eq(2)).or
+                  (image.select(BANDS[2]).eq(4)));
+  }
+  if (Fmask_select === 'No'){
+    var Fmask = NoCloudMask;
+  }
+  if (SimpleCloudScore_select === 'Yes'){
+    var cloud_sure = ee.Algorithms.Landsat.simpleCloudScore(image);
+    var SimpleCloudScore = cloud_sure.select(['cloud']).gte(13);
+  }
+  if (SimpleCloudScore_select === 'No'){
+    var SimpleCloudScore = NoCloudMask;
+  }
+  if (UnsureClouds_select === 'Yes'){
+    var cloud_unsure = ee.Algorithms.Landsat.simpleCloudScore(image);
+    var UnsureClouds = cloud_unsure.select(['cloud']).lt(13).and(cloud_unsure.select(['cloud']).gte(9)).and(image.select(BANDS[3]).lte(292));
+  }
+  if (UnsureClouds_select === 'No'){
+    var UnsureClouds = NoCloudMask;
+  }
+  
+  var maskedClouds = (NoCloudMask.or(Fmask).or(SimpleCloudScore).or(UnsureClouds)).focal_max(cloud_buffer,'circle','meters',1);
+  return image.updateMask((maskedClouds.add(1).unmask(0)).eq(1));
+}
+
+
+// Masking Step 2: Masking of sensor errors and non-forest areas *******************************************************************************************
+var Masking_2 = function(image,forest_mask,hansen_treecover,roadless_year,forest_mask_select,BANDS,sensorerror_bufferdistance) {
+
+  var sensorError = (image.select(BANDS[0]).eq(0)).or(image.select(BANDS[1]).eq(0)).or(image.select(BANDS[5]).eq(0)).or(image.select(BANDS[6]).eq(0)).or
+                    (image.select(BANDS[7]).eq(0)).or(image.select(BANDS[8]).eq(0)).add(1).unmask(0); // Important to handle SLC error in Landsat 7
+  
+  var sensorError_buffer = sensorError.focal_min({
+    radius: sensorerror_bufferdistance,
+    kernelType: 'square',
+    units:'pixels',
+    iterations: 1})
+                    
+  if (forest_mask_select === 'No_forest_map'){
+    var OUT = image.updateMask(sensorError_buffer.eq(1).and(forest_mask.eq(1)));
+  }
+  if (forest_mask_select === 'Roadless_map'){
+    if (roadless_year === '2016_Roadless_map'){
+      var OUT = image.updateMask(sensorError_buffer.eq(1).and((forest_mask.gt(10).and(forest_mask.lt(26)))));
+    }
+    if (roadless_year === '2015_Roadless_map'){
+      var OUT = image.updateMask(sensorError_buffer.eq(1).and((forest_mask.gt(10).and(forest_mask.lt(26))).or((forest_mask.gt(52).and(forest_mask.lt(54)))).or((forest_mask.gt(62).and(forest_mask.lt(64))))));
+    }
+    if (roadless_year === '2014_Roadless_map'){
+      var OUT = image.updateMask(sensorError_buffer.eq(1).and((forest_mask.gt(10).and(forest_mask.lt(26))).or((forest_mask.gt(51).and(forest_mask.lt(54)))).or((forest_mask.gt(61).and(forest_mask.lt(64))))));
+    }
+  }
+  if (forest_mask_select === '2012_Hansen_map' || forest_mask_select === '2013_Hansen_map' || 
+      forest_mask_select === '2014_Hansen_map' || forest_mask_select === '2015_Hansen_map' || 
+      forest_mask_select === '2016_Hansen_map'){
+      var OUT = image.updateMask(sensorError_buffer.eq(1)).updateMask(forest_mask.gte(hansen_treecover));
+     }
+  return OUT;
+};
+
+
+// NBR function, which is applied to all single satellite scenes --> NBR = (NIR-SWIR2)/(NIR+SWIR2) *********************************************************
+var NBR = function(image) {
+
+  var d = ee.Date(image.get('system:time_start'));
+  var doy =ee.Algorithms.Date(ee.Number(image.get("system:time_start")));
+  var yearday=(ee.Number(doy.get('year')).multiply(10000).add(ee.Number(doy.get('month')).multiply(100)).add(ee.Number(doy.get('day'))));
+  
+  yearday = ee.Image.constant(yearday).toInt32().select([0],['yearday']);
+
+  return (image.select('NIR').subtract(image.select('SWIR2'))).
+  divide(((image.select('NIR')).add(image.select('SWIR2')))).
+  rename(['NBR']).addBands(yearday);
+};
+
+
+// Adjustment kernel function, which self-references each NBR input scene (in order to allow inter-scene comparability) ************************************
+var Adjustment_kernel = function(image,kernel_size) {
+  return (image.select('NBR').subtract(image.select('NBR').focal_median(kernel_size,"circle","meters"))).addBands(image.select('yearday')); 
+};
+
+
+// Capping at 0 and -1 (positive values are set to 0; values <= -1 are set to -1 because the latter mainly refer to active fires) **************************
+var Capping = function(image) {
+  return ((image.select('NBR').where(image.select('NBR').gt(0),0).where(image.select('NBR').lt(-1),-1)).multiply(-1)).addBands(image.select('yearday')); 
+};
+
+// *********************************************************************************************************************************************************
+
+
+// Definition of study area
+var studyarea = country.geometry(); // The study area is set to above selection
+
+
+// Preparation of variables for export per Degree-tiles
+var bbox = (studyarea.bounds().coordinates().getInfo());
+var minX = bbox[0][0][0];
+var maxY = bbox[0][3][1];
+var minY = bbox[0][1][1];
+var maxX = bbox[0][1][0];
+
+var min_X = Math.floor(minX);
+var max_X = Math.ceil(maxX);
+var min_Y = Math.floor(minY);
+var max_Y = Math.ceil(maxY);
+
+var Delta_X = max_X - min_X 
+var Delta_Y = max_Y - min_Y
+
+
+// Adjustments according to above user selections
+if (center === 'Yes'){
+  Map.centerObject(studyarea, zoomlevel);
+}
+
+
+if (forest_mask_select === 'No_forest_map'){
+  var Hansen_map = ee.Image("UMD/hansen/global_forest_change_2015_v1_3").clip(country);
+  var forest_mask = Hansen_map.select('treecover2000').gte(0); // No forest map selected
+  Map.addLayer (forest_mask,{},'No Forest map',false);
+}
+if (forest_mask_select === 'Roadless_map'){
+  var PALETTE = [
+rgb(0,0,0),  rgb(0,0,0), rgb(0,0,0),rgb(0,0,0),rgb(0,0,0),  rgb(0,0,0), rgb(0,0,0),  rgb(0,0,0),    rgb(0,0,0),   rgb(0,0,0), 
+rgb(0,0,0),    // value 10. Undisturbed   (dark green)
+rgb(0,80,0),     // value 11.   Undisturbed forest over the 33 years (1984-2016) (Evergreen/semi-evergreen dense moist forest)
+rgb(0,80,0),     // value 12.   Undisturbed forest with less than 50 valid obs over the 33 years or nodata in one period
+rgb(0,100,0),                 //(temp) value 13.   Undisturbed forest with nodata in 1984-2004
+rgb(0,80,0),                 //(temp) value 14.   Undisturbed forest with one non-green obs in the spectral confusion domain and under the mask (filtred)
+rgb(0,120,0),                 //(temp) value 15.  Degraded forest or open forest
+
+rgb(0,0,0),  rgb(0,0,0), rgb(0,0,0),  rgb(0,0,0),  rgb(0,0,0),    // value 20. Old vegetation regrowth (>10 years)     (green) 
+rgb(30,130,0),     // value 21. Old vegetation regrowth (>20 years) with high disturbance intensity (>3) in (1984-1996)
+rgb(30,130,0),     // value 22. Old vegetation regrowth (>20 years) with low disturbance intensity (1-3) in (1984-1996) 
+rgb(100,160,0),     // value 23. Old vegetation regrowth of 10-20 years, with high disturbance intensity (>3) NEW JUNE
+rgb(100,160,0),     // value 24. Old vegetation regrowth of 10-20 years, with high disturbance intensity (>3) NEW JUNE
+rgb(100,160,0),           //  value 25. Old vegetation regrowth of 10-20 years, with low disturbance intensity (1-3) NEW JUNE
+rgb(100,160,0),           // value 26. Old vegetation regrowth of 10-20 years, with low disturbance intensity (1-3) 
+
+ rgb(0,0,0),    rgb(0,0,0),   rgb(0,0,0),    rgb(0,0,0),  // value 30. Young vegetation regrowth (light green)
+rgb(180,210,60),     // val 31. Forest young vegetation regrowth (6 - 10 years) with long (>1 year) disturbance in (2007-2011), forest before (1984-2006) 
+rgb(180,210,60),     // val 32. Forest young vegetation regrowth (6 - 10 years) with short (<1 year) disturbance in (2007-2011), forest before (1984-2006) 
+rgb(180,210,60),     // val 33. Forest young vegetation regrowth (3 - 5 years) with long (>1 year) disturbance in (2007-2013), forest before (1984-2006) 
+rgb(180,210,60),     // val 34. Forest young vegetation regrowth (3 - 5 years) with short (<1 year) disturbance in (2007-2013), forest before (1984-2006) 
+rgb(180,240,80),           // val 35. Young vegetation regrowth (6 - 10 years) with long (>1 year) disturbance in (1984-2011) , non-forest before (1984-2006)
+rgb(180,240,80),           // val 36. Young vegetation regrowth (6 - 10 years) with short (<1 year) disturbance in (1984-2011) , non-forest before (1984-2006) 
+rgb(212,240,168),          // val 37. Young vegetation regrowth (3 - 5 years) with long (>1 year) disturbance in (1984-2013), non-forest before (1984-2006)
+rgb(212,240,168),          // val 38. Young vegetation regrowth (3 - 5 years) with short (<1 year) disturbance in (1984-2013), non-forest before (1984-2006)
+
+rgb(0,0,0),         rgb(0,0,0),         // value 40. Deforestation (2005-2012)  (orange)
+rgb(255,235,30),        // value 41. Recent deforestation (2007-2015), started in 2007
+rgb(255,215,30),        // value 42. Recent deforestation (2007-2015),, started in 2008 
+rgb(255,200,20),        // value 43. Recent deforestation (2007-2015), started in 2009
+rgb(255,180,15),        // value 44. Recent deforestation (2007-2015),, started in 2010
+rgb(255,160,10),        // value 45. Recent deforestation (2007-2015), started in 2011
+rgb(255,140,10),        // value 46. Recent deforestation (2007-2015), started in 2012
+rgb(255,120,10),        // value 47. Recent deforestation (2007-2015), started in 2013
+
+rgb(255,100,10), rgb(0,0,0),     rgb(0,0,0),   // value 50. Recent disturbance/deforestation (2013-2015) 
+rgb(255,60,0),           // value 51 Recent deforestation (2014-2016), started in 2014,   (red-orange) 
+rgb(255,20,0),           // value 52 Recent deforestation (2014-2016), started in 2015,   (red) 
+rgb(215,0,0),                       // value 53  OLD (Recent deforestation (2014-2016), started in 2016, with high disturbance intensity (>3))
+
+rgb(0,0,0), rgb(0,0,0),   rgb(0,0,0),  rgb(0,0,0),rgb(0,0,0),  rgb(0,0,0),   rgb(0,0,0),  // value 60. Degradation
+rgb(170,80,80),             // value 61. Short disturbance (<1 year), started in 2014
+rgb(145,90,65),            // value 62. Short disturbance (<1 year), started in 2015 
+rgb(120,95,50),             // value 63. Short disturbance (<1 year), started in 2016  rgb(255,100,100)
+
+rgb(0,0,0),    rgb(0,0,0),  rgb(0,0,0),  rgb(0,0,0),  rgb(0,0,0),     rgb(0,0,0),   rgb(0,0,0),  // value 70. Water
+rgb(0,77,168),         // value 71. Permanent Water      (dark Blue)
+rgb(0,157,200),        // value 72. Between Seasonal & Perm Water   (light Blue)
+rgb(255,20,147),        // value 73. Deforestation to Permanent Water 
+rgb(255,105,180),     // value 74. Deforestation to seasonal water 
+rgb(138,43,226),        // value 75. Deforestation to Permanent Water ONLY SAM et North Asia TEST
+rgb(138,43,226),       // value 76. Deforestation to Seasonal Water ONLY SAM et North Asia TEST
+rgb(0,0,0),   rgb(0,0,0),  rgb(0,0,0),       rgb(0,0,0),  // value 80. Plantations
+rgb(51,99,51),             // value 81. Very old Plantations or intact inside concession (green over 32y) 
+rgb(98,161,80),            // value 82. Old Plantations      (10-32y)  
+rgb(188,209,105),          // value 83. Young Plantations (3-10y) - light grey
+rgb(255,208,128),          // value 84. Plantations recently cut (2013-2015) (pink-grey)
+rgb(250,180,150),          // value 85. Plantations recently cut (2005-2013)
+rgb(204,163,163),          //val 86. Plantations disturbed 
+
+rgb(0,0,0),  rgb(0,0,0),    rgb(0,0,0),   rgb(0,0,0),  // value 90. Other LC (regular disturbances): Non-water, Non-Mangroves, Non-evergreen forest, Non-regrowth
+rgb(255,255,255),        // value 91.   Other LC: Non-forest for the 3 periods (Savanna, Deciduous forest, Agriculture...)
+rgb(255,255,255),        // value 92.   Other LC: Non-forest for the 3 periods but first disturbance started after 2000
+rgb(255,255,255),        // value 93.   Other LC: Non-forest in (1984-2006), regrowth in (2007-2013), non-forest in (2014-2016)
+rgb(209,255,115),        // value 94.   Other LC: Evergreen non-forest (shrubland, Grassland)
+
+rgb(0,0,0),  rgb(0,0,0),    rgb(0,0,0),   rgb(0,0,0),   rgb(0,0,0),   rgb(0,0,0),     // value 100. No data over at least 2 periods  (black)
+rgb(0,0,0),           // value 101  No data over the 3 periods
+rgb(0,0,0),           // value 102. No data over 1984-2013
+rgb(0,0,0),   rgb(0,0,0),      rgb(0,0,0),        rgb(0,0,0),           
+];
+  var forest_mask = ee.Image('users/andilangner/Classif33yDegrad').clip(country); // Roadless map (not yet public)
+  Map.addLayer (forest_mask,{min:[0],max:[106],palette: PALETTE},'Roadless map',false);
+}
+if (forest_mask_select === '2016_Hansen_map'){
+  var Hansen_map = ee.Image("UMD/hansen/global_forest_change_2016_v1_4"); // Hansen map 2016
+  var forest_mask = Hansen_map.select('treecover2000').mask(Hansen_map.select('loss').eq(0)).clip(country);
+  Map.addLayer (forest_mask,{min:[0],max:[100],palette:'ffffcc,006600'},'Hansen map 2016',false);
+}
+if (forest_mask_select === '2015_Hansen_map'){
+  var Hansen_map = ee.Image("UMD/hansen/global_forest_change_2015_v1_3"); // Hansen map 2015
+  var forest_mask = Hansen_map.select('treecover2000').mask(Hansen_map.select('loss').eq(0)).clip(country);
+  Map.addLayer (forest_mask,{min:[0],max:[100],palette:'ffffcc,006600'},'Hansen map 2015',false);
+}
+if (forest_mask_select === '2014_Hansen_map'){
+  var Hansen_map = ee.Image("UMD/hansen/global_forest_change_2015"); // Hansen map 2014
+  var forest_mask = Hansen_map.select('treecover2000').mask(Hansen_map.select('loss').eq(0)).clip(country);
+  Map.addLayer (forest_mask,{min:[0],max:[100],palette:'ffffcc,006600'},'Hansen map 2014',false);
+}
+if (forest_mask_select === '2013_Hansen_map'){
+  var Hansen_map = ee.Image("UMD/hansen/global_forest_change_2014"); // Hansen map 2013
+  var forest_mask = Hansen_map.select('treecover2000').mask(Hansen_map.select('loss').eq(0)).clip(country);
+  Map.addLayer (forest_mask,{min:[0],max:[100],palette:'ffffcc,006600'},'Hansen map 2013',false);
+}
+if (forest_mask_select === '2012_Hansen_map'){
+  var Hansen_map = ee.Image("UMD/hansen/global_forest_change_2013"); // Hansen map 2012
+  var forest_mask = Hansen_map.select('treecover2000').mask(Hansen_map.select('loss').eq(0)).clip(country);
+  Map.addLayer (forest_mask,{min:[0],max:[100],palette:'ffffcc,006600'},'Hansen map 2012',false);
+}
+
+
+if (Sensor === 'L8' || Sensor === 'L78'){
+  var BANDS=['B5','B7','fmask','B10','BQA','B2','B3','B4','B6'];
+
+  // Data preparation and cloud masking ********************************************************************************************************************
+  var Imagecollection_base = ee.ImageCollection('LANDSAT/LC8_L1T_TOA_FMASK')
+  .filterDate(Start_base, End_base)
+  .filterBounds(studyarea)
+  .map(function(image){return Masking_1QB(image,cloud_buffer,BANDS,Fmask_select,SimpleCloudScore_select,UnsureClouds_select,QB_select)});
+  var Imagecollection_second = ee.ImageCollection('LANDSAT/LC8_L1T_TOA_FMASK')
+  .filterDate(Start_second, End_second)
+  .filterBounds(studyarea)
+  .map(function(image){return Masking_1QB(image,cloud_buffer,BANDS,Fmask_select,SimpleCloudScore_select,UnsureClouds_select,QB_select)});    
+
+  // Data preparation and masking of sensor errors and non-forest areas ************************************************************************************
+  var Imagecollection_base_2 = Imagecollection_base
+  .map(function(image){return Masking_2(image.clip(image.geometry().
+  buffer(-500)),forest_mask,hansen_treecover,roadless_year,forest_mask_select,BANDS,sensorerror_bufferdistance)}).select(['B5','B7'],['NIR','SWIR2']);
+  var Imagecollection_second_2 = Imagecollection_second
+  .map(function(image){return Masking_2(image.clip(image.geometry().
+  buffer(-500)),forest_mask,hansen_treecover,roadless_year,forest_mask_select,BANDS,sensorerror_bufferdistance)}).select(['B5','B7'],['NIR','SWIR2']);
+  
+  // Calculation of single scenes of Base-NBR **************************************************************************************************************
+  var NBR_Imagecollection_base = Imagecollection_base_2.map(NBR);
+  
+  // 'Self-referencing' or normalizatin of single scenes of Base-NBR ***************************************************************************************
+  var NBR_Imagecollection_base_normal1 = NBR_Imagecollection_base.map(function(image){return Adjustment_kernel(image,kernel_size)});
+  
+  // Capping of self-referenced single Base-NBR scenes at 0 and -1 *****************************************************************************************
+  var NBR_Imagecollection_base_normal2 = NBR_Imagecollection_base_normal1.map(Capping);
+  
+  // Condensation of all available self-referenced single Base-NBR scenes per investigation period *********************************************************
+  var NBR_Imagecollection_base_normalized_min = NBR_Imagecollection_base_normal2.qualityMosaic('NBR');
+
+  // Calculation of single scenes of Second-NBR ************************************************************************************************************
+  var NBR_Imagecollection_second = Imagecollection_second_2.map(NBR);
+  
+  // 'Self-referencing' or normalizatin of single scenes of Second-NBR *************************************************************************************
+  var NBR_Imagecollection_second_normal1 = NBR_Imagecollection_second.map(function(image){return Adjustment_kernel(image,kernel_size)});
+  
+  // Capping of self-referenced single Second-NBR scenes at 0 and -1 ***************************************************************************************
+  var NBR_Imagecollection_second_normal2 = NBR_Imagecollection_second_normal1.map(Capping);
+  
+  // Condensation of all available self-referenced single Second-NBR scenes per investigation period *******************************************************
+  var NBR_Imagecollection_second_normalized_min = NBR_Imagecollection_second_normal2.qualityMosaic('NBR');
+
+  // Derive the Delta-NBR result ***************************************************************************************************************************
+  var NBR_difference = NBR_Imagecollection_second_normalized_min.select('NBR').subtract(NBR_Imagecollection_base_normalized_min.select('NBR'));
+  var NBR_difference_capped = NBR_difference.select('NBR').where(NBR_difference.select('NBR').lt(0), 0);
+
+  // Display of condensed Base-NBR scene and information about the acquisition dates of the base satellite data per single pixel location ******************
+  Map.addLayer (NBR_Imagecollection_base_normalized_min.select('NBR'),{min:[0],max:[0.3],palette:'D3D3D3,Ce0f0f'},'NBR-Base L8 '+Start_base+' - '+End_base, false);
+  Map.addLayer (NBR_Imagecollection_base_normalized_min.select('yearday'),{min:[Start_base.replace(/-/g,'')],max:[End_base.replace(/-/g,'')],palette:'ff0000,ffffff'},'Date-Base L8 '+Start_base+' - '+End_base, false);
+
+  // Display of condensed Second-NBR scene and information about the acquisition dates of the second satellite data per single pixel location **************
+  Map.addLayer (NBR_Imagecollection_second_normalized_min.select('NBR'),{min:[0],max:[0.3],palette:'D3D3D3,Ce0f0f'},'NBR-Second L8 '+Start_second+' - '+End_second, false);
+  Map.addLayer (NBR_Imagecollection_second_normalized_min.select('yearday'),{min:[Start_second.replace(/-/g,'')],max:[End_second.replace(/-/g,'')],palette:'ff0000,ffffff'},'Date-Second L8 '+Start_second+' - '+End_second, false);
+
+  // Just some information regarding the used satellite data ***********************************************************************************************
+  print (Imagecollection_base_2,'Base period L8: '+Start_base+' - '+End_base);
+  print (Imagecollection_second_2,'Second period L8: '+Start_second+' - '+End_second);
+  // *******************************************************************************************************************************************************
+
+  // Prepare data for export (NoData is set to -2) *********************************************************************************************************
+  var NBR_Imagecollection_base_normalized_min_Export_L8 = NBR_Imagecollection_base_normalized_min.select('NBR').unmask(-2);
+  var NBR_Imagecollection_base_normalized_min_date_Export_L8 = NBR_Imagecollection_base_normalized_min.select('yearday').unmask(-2);
+  var NBR_Imagecollection_second_normalized_min_Export_L8 = NBR_Imagecollection_second_normalized_min.select('NBR').unmask(-2);
+  var NBR_Imagecollection_second_normalized_min_date_Export_L8 = NBR_Imagecollection_second_normalized_min.select('yearday').unmask(-2);
+  var NBR_difference_Export_L8 = NBR_difference_capped.unmask(-2);  
+  
+  if (Sensor === 'L78'){
+    Map.addLayer (NBR_difference_capped.select('NBR'),{min:[0],max:[0.3],palette:'D3D3D3,Ce0f0f'},'DeltaNBR L8 '+Sensor+' '+End_second+' - '+Start_base, false);
+    var NBR_difference_capped_L8 = ee.ImageCollection(NBR_difference_capped);
+    NBR_difference_capped = 0;
+  }
+  if (Sensor === 'L8'){
+    Map.addLayer (NBR_difference_capped.select('NBR'),{min:[0],max:[0.3],palette:'D3D3D3,Ce0f0f'},'DeltaNBR L8 '+Sensor+' '+End_second+' - '+Start_base, false);
+  }
+}
+
+if (Sensor === 'L7' || Sensor === 'L78' || Sensor === 'L57'){
+  var BANDS=['B4','B7','fmask','B6_VCID_1','B6_VCID_1','B1','B2','B3','B5'];
+
+  // Data preparation and cloud masking ********************************************************************************************************************
+  var Imagecollection_base = ee.ImageCollection('LANDSAT/LE7_L1T_TOA_FMASK')
+  .filterDate(Start_base, End_base)
+  .filterBounds(studyarea)
+  .map(function(image){return Masking_1(image,cloud_buffer,BANDS,Fmask_select,SimpleCloudScore_select,UnsureClouds_select)});
+  var Imagecollection_second = ee.ImageCollection('LANDSAT/LE7_L1T_TOA_FMASK')
+  .filterDate(Start_second, End_second)
+  .filterBounds(studyarea)
+  .map(function(image){return Masking_1(image,cloud_buffer,BANDS,Fmask_select,SimpleCloudScore_select,UnsureClouds_select)});
+
+  // Data preparation and masking of sensor errors and non-forest areas ************************************************************************************  
+  var Imagecollection_base_2 = Imagecollection_base
+  .map(function(image){return Masking_2(image.clip(image.geometry().
+  buffer(-500)),forest_mask,hansen_treecover,roadless_year,forest_mask_select,BANDS,sensorerror_bufferdistance)}).select(['B4','B7'],['NIR','SWIR2']);
+  var Imagecollection_second_2 = Imagecollection_second
+  .map(function(image){return Masking_2(image.clip(image.geometry().
+  buffer(-500)),forest_mask,hansen_treecover,roadless_year,forest_mask_select,BANDS,sensorerror_bufferdistance)}).select(['B4','B7'],['NIR','SWIR2']);
+
+  // Calculation of single scenes of Base-NBR **************************************************************************************************************
+  var NBR_Imagecollection_base = Imagecollection_base_2.map(NBR);
+  
+  // 'Self-referencing' or normalizatin of single scenes of Base-NBR ***************************************************************************************
+  var NBR_Imagecollection_base_normal1 = NBR_Imagecollection_base.map(function(image){return Adjustment_kernel(image,kernel_size)});
+  
+  // Capping of self-referenced single Base-NBR scenes at 0 and -1 *****************************************************************************************
+  var NBR_Imagecollection_base_normal2 = NBR_Imagecollection_base_normal1.map(Capping);
+  
+  // Condensation of all available self-referenced single Base-NBR scenes per investigation period *********************************************************
+  var NBR_Imagecollection_base_normalized_min = NBR_Imagecollection_base_normal2.qualityMosaic('NBR');
+
+  // Calculation of single scenes of Second-NBR ************************************************************************************************************
+  var NBR_Imagecollection_second = Imagecollection_second_2.map(NBR);
+  
+  // 'Self-referencing' or normalizatin of single scenes of Second-NBR *************************************************************************************
+  var NBR_Imagecollection_second_normal1 = NBR_Imagecollection_second.map(function(image){return Adjustment_kernel(image,kernel_size)});
+  
+  // Capping of self-referenced single Second-NBR scenes at 0 and -1 ***************************************************************************************
+  var NBR_Imagecollection_second_normal2 = NBR_Imagecollection_second_normal1.map(Capping);
+  
+  // Condensation of all available self-referenced single Second-NBR scenes per investigation period *******************************************************
+  var NBR_Imagecollection_second_normalized_min = NBR_Imagecollection_second_normal2.qualityMosaic('NBR');
+
+  // Derive the Delta-NBR result ***************************************************************************************************************************
+  var NBR_difference = NBR_Imagecollection_second_normalized_min.select('NBR').subtract(NBR_Imagecollection_base_normalized_min.select('NBR'));
+  var NBR_difference_capped = NBR_difference.select('NBR').where(NBR_difference.select('NBR').lt(0), 0);
+
+  // Display of condensed Base-NBR scene and information about the acquisition dates of the base satellite data per single pixel location ******************
+  Map.addLayer (NBR_Imagecollection_base_normalized_min.select('NBR'),{min:[0],max:[0.3],palette:'D3D3D3,Ce0f0f'},'NBR-Base L7 '+Start_base+' - '+End_base, false);
+  Map.addLayer (NBR_Imagecollection_base_normalized_min.select('yearday'),{min:[Start_base.replace(/-/g,'')],max:[End_base.replace(/-/g,'')],palette:'ff0000,ffffff'},'Date-Base L7 '+Start_base+' - '+End_base, false);
+
+  // Display of condensed Second-NBR scene and information about the acquisition dates of the second satellite data per single pixel location **************
+  Map.addLayer (NBR_Imagecollection_second_normalized_min.select('NBR'),{min:[0],max:[0.3],palette:'D3D3D3,Ce0f0f'},'NBR-Second L7 '+Start_second+' - '+End_second, false);
+  Map.addLayer (NBR_Imagecollection_second_normalized_min.select('yearday'),{min:[Start_second.replace(/-/g,'')],max:[End_second.replace(/-/g,'')],palette:'ff0000,ffffff'},'Date-Second L7 '+Start_second+' - '+End_second, false);
+
+  // Just some information regarding the used satellite data ***********************************************************************************************
+  print (Imagecollection_base_2,'Base period L7: '+Start_base+' - '+End_base);
+  print (Imagecollection_second_2,'Second period L7: '+Start_second+' - '+End_second);
+  // *******************************************************************************************************************************************************
+
+  // Prepare data for export (NoData is set to -2) *********************************************************************************************************
+  var NBR_Imagecollection_base_normalized_min_Export_L7 = NBR_Imagecollection_base_normalized_min.select('NBR').unmask(-2);
+  var NBR_Imagecollection_base_normalized_min_date_Export_L7 = NBR_Imagecollection_base_normalized_min.select('yearday').unmask(-2);
+  var NBR_Imagecollection_second_normalized_min_Export_L7 = NBR_Imagecollection_second_normalized_min.select('NBR').unmask(-2);
+  var NBR_Imagecollection_second_normalized_min_date_Export_L7 = NBR_Imagecollection_second_normalized_min.select('yearday').unmask(-2);
+  var NBR_difference_Export_L7 = NBR_difference_capped.unmask(-2);  
+
+  if (Sensor === 'L78' || Sensor === 'L57'){
+    Map.addLayer (NBR_difference_capped.select('NBR'),{min:[0],max:[0.3],palette:'D3D3D3,Ce0f0f'},'DeltaNBR L7 '+Sensor+' '+End_second+' - '+Start_base, false);
+    if (improve_L8 === 'Yes'){
+      NBR_difference_capped = NBR_difference_capped.where(NBR_difference_capped.lt(improve_threshold),0);
+      var NBR_difference_capped_L7 = ee.ImageCollection(NBR_difference_capped);
+      NBR_difference_capped = 0;
+    }
+    if (improve_L8 === 'No'){
+      var NBR_difference_capped_L7 = ee.ImageCollection(NBR_difference_capped);
+      NBR_difference_capped = 0;
+    }
+  }
+  if (Sensor === 'L7'){
+    Map.addLayer (NBR_difference_capped.select('NBR'),{min:[0],max:[0.3],palette:'D3D3D3,Ce0f0f'},'DeltaNBR L7 '+Sensor+' '+End_second+' - '+Start_base, false);
+  }
+}
+
+if (Sensor === 'L5' || Sensor === 'L57'){
+  var BANDS=['B4','B7','fmask','B6','B6','B1','B2','B3','B5'];
+
+  // Data preparation and cloud masking ********************************************************************************************************************
+  var Imagecollection_base = ee.ImageCollection('LANDSAT/LT5_L1T_TOA_FMASK')
+  .filterDate(Start_base, End_base)
+  .filterBounds(studyarea)
+  .map(function(image){return Masking_1(image,cloud_buffer,BANDS,Fmask_select,SimpleCloudScore_select,UnsureClouds_select)});
+  var Imagecollection_second = ee.ImageCollection('LANDSAT/LT5_L1T_TOA_FMASK')
+  .filterDate(Start_second, End_second)
+  .filterBounds(studyarea)
+  .map(function(image){return Masking_1(image,cloud_buffer,BANDS,Fmask_select,SimpleCloudScore_select,UnsureClouds_select)});
+
+  // Data preparation and masking of sensor errors and non-forest areas ************************************************************************************   
+  var Imagecollection_base_2 = Imagecollection_base
+  .map(function(image){return Masking_2(image.clip(image.geometry().
+  buffer(-500)),forest_mask,hansen_treecover,roadless_year,forest_mask_select,BANDS,sensorerror_bufferdistance)}).select(['B4','B7'],['NIR','SWIR2']);
+  var Imagecollection_second_2 = Imagecollection_second
+  .map(function(image){return Masking_2(image.clip(image.geometry().
+  buffer(-500)),forest_mask,hansen_treecover,roadless_year,forest_mask_select,BANDS,sensorerror_bufferdistance)}).select(['B4','B7'],['NIR','SWIR2']);
+
+  // Calculation of single scenes of Base-NBR **************************************************************************************************************
+  var NBR_Imagecollection_base = Imagecollection_base_2.map(NBR);
+  
+  // 'Self-referencing' or normalizatin of single scenes of Base-NBR ***************************************************************************************
+  var NBR_Imagecollection_base_normal1 = NBR_Imagecollection_base.map(function(image){return Adjustment_kernel(image,kernel_size)});
+  
+  // Capping of self-referenced single Base-NBR scenes at 0 and -1 *****************************************************************************************
+  var NBR_Imagecollection_base_normal2 = NBR_Imagecollection_base_normal1.map(Capping);
+  
+  // Condensation of all available self-referenced single Base-NBR scenes per investigation period *********************************************************
+  var NBR_Imagecollection_base_normalized_min = NBR_Imagecollection_base_normal2.qualityMosaic('NBR');
+
+  // Calculation of single scenes of Second-NBR ************************************************************************************************************
+  var NBR_Imagecollection_second = Imagecollection_second_2.map(NBR);
+  
+  // 'Self-referencing' or normalizatin of single scenes of Second-NBR *************************************************************************************
+  var NBR_Imagecollection_second_normal1 = NBR_Imagecollection_second.map(function(image){return Adjustment_kernel(image,kernel_size)});
+  
+  // Capping of self-referenced single Second-NBR scenes at 0 and -1 ***************************************************************************************
+  var NBR_Imagecollection_second_normal2 = NBR_Imagecollection_second_normal1.map(Capping);
+  
+  // Condensation of all available self-referenced single Second-NBR scenes per investigation period *******************************************************
+  var NBR_Imagecollection_second_normalized_min = NBR_Imagecollection_second_normal2.qualityMosaic('NBR');
+
+  // Derive the Delta-NBR result ***************************************************************************************************************************
+  var NBR_difference = NBR_Imagecollection_second_normalized_min.select('NBR').subtract(NBR_Imagecollection_base_normalized_min.select('NBR'));
+  var NBR_difference_capped = NBR_difference.select('NBR').where(NBR_difference.select('NBR').lt(0), 0);
+
+  // Display of condensed Base-NBR scene and information about the acquisition dates of the base satellite data per single pixel location ******************
+  Map.addLayer (NBR_Imagecollection_base_normalized_min.select('NBR'),{min:[0],max:[0.3],palette:'D3D3D3,Ce0f0f'},'NBR-Base L5 '+Start_base+' - '+End_base, false);
+  Map.addLayer (NBR_Imagecollection_base_normalized_min.select('yearday'),{min:[Start_base.replace(/-/g,'')],max:[End_base.replace(/-/g,'')],palette:'ff0000,ffffff'},'Date-Base L5 '+Start_base+' - '+End_base, false);
+
+  // Display of condensed Second-NBR scene and information about the acquisition dates of the second satellite data per single pixel location **************
+  Map.addLayer (NBR_Imagecollection_second_normalized_min.select('NBR'),{min:[0],max:[0.3],palette:'D3D3D3,Ce0f0f'},'NBR-Second L5 '+Start_second+' - '+End_second, false);
+  Map.addLayer (NBR_Imagecollection_second_normalized_min.select('yearday'),{min:[Start_second.replace(/-/g,'')],max:[End_second.replace(/-/g,'')],palette:'ff0000,ffffff'},'Date-Second L5 '+Start_second+' - '+End_second, false);
+
+  // Just some information regarding the used satellite data ***********************************************************************************************
+  print (Imagecollection_base_2,'Base period L5: '+Start_base+' - '+End_base);
+  print (Imagecollection_second_2,'Second period L5: '+Start_second+' - '+End_second);
+  // *******************************************************************************************************************************************************
+
+  // Prepare data for export (NoData is set to -2) *********************************************************************************************************
+  var NBR_Imagecollection_base_normalized_min_Export_L5 = NBR_Imagecollection_base_normalized_min.select('NBR').unmask(-2);
+  var NBR_Imagecollection_base_normalized_min_date_Export_L5 = NBR_Imagecollection_base_normalized_min.select('yearday').unmask(-2);
+  var NBR_Imagecollection_second_normalized_min_Export_L5 = NBR_Imagecollection_second_normalized_min.select('NBR').unmask(-2);
+  var NBR_Imagecollection_second_normalized_min_date_Export_L5 = NBR_Imagecollection_second_normalized_min.select('yearday').unmask(-2);
+  var NBR_difference_Export_L5 = NBR_difference_capped.unmask(-2);  
+
+  if (Sensor === 'L57'){
+    Map.addLayer (NBR_difference_capped.select('NBR'),{min:[0],max:[0.3],palette:'D3D3D3,Ce0f0f'},'DeltaNBR L5 '+Sensor+' '+End_second+' - '+Start_base, false);
+    var NBR_difference_capped_L5 = ee.ImageCollection(NBR_difference_capped);
+    NBR_difference_capped = 0;
+  }
+  if (Sensor === 'L5'){
+    Map.addLayer (NBR_difference_capped.select('NBR'),{min:[0],max:[0.3],palette:'D3D3D3,Ce0f0f'},'DeltaNBR L5 '+Sensor+' '+End_second+' - '+Start_base, false);
+  }
+}
+
+if (Sensor === 'L78'){
+    var NBR_difference_capped_L78 = ee.ImageCollection(NBR_difference_capped_L7.merge(NBR_difference_capped_L8));
+    var NBR_difference_capped = NBR_difference_capped_L78.qualityMosaic('NBR');
+    Map.addLayer (NBR_difference_capped.select('NBR'),{min:[0],max:[0.3],palette:'D3D3D3,Ce0f0f'},'DeltaNBR L78 '+Sensor+' '+End_second+' - '+Start_base, false);
+    // Prepare data for export (NoData is set to -2) *******************************************************************************************************
+    var NBR_difference_Export_L78 = NBR_difference_capped.unmask(-2);
+} 
+
+if (Sensor === 'L57'){
+    var NBR_difference_capped_L57 = ee.ImageCollection(NBR_difference_capped_L5.merge(NBR_difference_capped_L7))
+    var NBR_difference_capped = NBR_difference_capped_L57.qualityMosaic('NBR');
+    Map.addLayer (NBR_difference_capped.select('NBR'),{min:[0],max:[0.3],palette:'D3D3D3,Ce0f0f'},'DeltaNBR L57 '+Sensor+' '+End_second+' - '+Start_base, false);
+    // Prepare data for export (NoData is set to -2) *******************************************************************************************************
+    var NBR_difference_Export_L57 = NBR_difference_capped.unmask(-2);
+} 
+
+if (Sensor === 'S2'){
+  var BANDS=['B2','B8','B9','B11','B12','B3','B4','B5','B6'];
+
+  // Data preparation and cloud masking ********************************************************************************************************************
+  var Imagecollection_base = ee.ImageCollection('COPERNICUS/S2')
+  .filterDate(Start_base, End_base)
+  .filterBounds(studyarea)
+  .map(function(image){return Masking_S2_1(image,cloud_buffer,BANDS)});
+  var Imagecollection_second = ee.ImageCollection('COPERNICUS/S2')
+  .filterDate(Start_second, End_second)
+  .filterBounds(studyarea)
+  .map(function(image){return Masking_S2_1(image,cloud_buffer,BANDS)});
+  
+  // Data preparation and masking of sensor errors and non-forest areas ************************************************************************************
+  var Imagecollection_base_2 = Imagecollection_base
+  .map(function(image){return Masking_2(image.clip(image.geometry().
+  buffer(-500)),forest_mask,hansen_treecover,roadless_year,forest_mask_select,BANDS,sensorerror_bufferdistance)}).select(['B8','B12'],['NIR','SWIR2']);
+  var Imagecollection_second_2 = Imagecollection_second
+  .map(function(image){return Masking_2(image.clip(image.geometry().
+  buffer(-500)),forest_mask,hansen_treecover,roadless_year,forest_mask_select,BANDS,sensorerror_bufferdistance)}).select(['B8','B12'],['NIR','SWIR2']);
+
+  // Calculation of single scenes of Base-NBR **************************************************************************************************************
+  var NBR_Imagecollection_base = Imagecollection_base_2.map(NBR);
+  
+  // 'Self-referencing' or normalizatin of single scenes of Base-NBR ***************************************************************************************
+  var NBR_Imagecollection_base_normal1 = NBR_Imagecollection_base.map(function(image){return Adjustment_kernel(image,kernel_size)});
+  
+  // Capping of self-referenced single Base-NBR scenes at 0 and -1 *****************************************************************************************
+  var NBR_Imagecollection_base_normal2 = NBR_Imagecollection_base_normal1.map(Capping);
+  
+  // Condensation of all available self-referenced single Base-NBR scenes per investigation period *********************************************************
+  var NBR_Imagecollection_base_normalized_min = NBR_Imagecollection_base_normal2.qualityMosaic('NBR');
+
+  // Calculation of single scenes of Second-NBR ************************************************************************************************************
+  var NBR_Imagecollection_second = Imagecollection_second_2.map(NBR);
+  
+  // 'Self-referencing' or normalizatin of single scenes of Second-NBR *************************************************************************************
+  var NBR_Imagecollection_second_normal1 = NBR_Imagecollection_second.map(function(image){return Adjustment_kernel(image,kernel_size)});
+  
+  // Capping of self-referenced single Second-NBR scenes at 0 and -1 ***************************************************************************************
+  var NBR_Imagecollection_second_normal2 = NBR_Imagecollection_second_normal1.map(Capping);
+  
+  // Condensation of all available self-referenced single Second-NBR scenes per investigation period *******************************************************
+  var NBR_Imagecollection_second_normalized_min = NBR_Imagecollection_second_normal2.qualityMosaic('NBR');
+
+  // Derive the Delta-NBR result ***************************************************************************************************************************
+  var NBR_difference = NBR_Imagecollection_second_normalized_min.select('NBR').subtract(NBR_Imagecollection_base_normalized_min.select('NBR'));
+  var NBR_difference_capped = NBR_difference.select('NBR').where(NBR_difference.select('NBR').lt(0), 0);
+
+  // Display of condensed Base-NBR scene and information about the acquisition dates of the base satellite data per single pixel location ******************
+  Map.addLayer (NBR_Imagecollection_base_normalized_min.select('NBR'),{min:[0],max:[0.3],palette:'D3D3D3,Ce0f0f'},'NBR-Base S2 '+Start_base+' - '+End_base, false);
+  Map.addLayer (NBR_Imagecollection_base_normalized_min.select('yearday'),{min:[Start_base.replace(/-/g,'')],max:[End_base.replace(/-/g,'')],palette:'ff0000,ffffff'},'Date-Base S2 '+Start_base+' - '+End_base, false);
+
+  // Display of condensed Second-NBR scene and information about the acquisition dates of the second satellite data per single pixel location **************
+  Map.addLayer (NBR_Imagecollection_second_normalized_min.select('NBR'),{min:[0],max:[0.3],palette:'D3D3D3,Ce0f0f'},'NBR-Second S2 '+Start_second+' - '+End_second, false);
+  Map.addLayer (NBR_Imagecollection_second_normalized_min.select('yearday'),{min:[Start_second.replace(/-/g,'')],max:[End_second.replace(/-/g,'')],palette:'ff0000,ffffff'},'Date-Second S2 '+Start_second+' - '+End_second, false);
+
+  // Display the Delta-NBR result **************************************************************************************************************************
+  Map.addLayer (NBR_difference_capped.select('NBR'),{min:[0],max:[0.3],palette:'D3D3D3,Ce0f0f'},'DeltaNBR S2 '+End_second+' - '+Start_base, false);
+
+  // Just some information regarding the used satellite data ***********************************************************************************************
+  print (Imagecollection_base_2,'Base period S2: '+Start_base+' - '+End_base);
+  print (Imagecollection_second_2,'Second period S2: '+Start_second+' - '+End_second);
+  // *******************************************************************************************************************************************************
+
+  // Prepare data for export (NoData is set to -2) *********************************************************************************************************
+  var NBR_Imagecollection_base_normalized_min_Export_S2 = NBR_Imagecollection_base_normalized_min.select('NBR').unmask(-2);
+  var NBR_Imagecollection_base_normalized_min_date_Export_S2 = NBR_Imagecollection_base_normalized_min.select('yearday').unmask(-2);
+  var NBR_Imagecollection_second_normalized_min_Export_S2 = NBR_Imagecollection_second_normalized_min.select('NBR').unmask(-2);
+  var NBR_Imagecollection_second_normalized_min_date_Export_S2 = NBR_Imagecollection_second_normalized_min.select('yearday').unmask(-2);
+  var NBR_difference_Export_S2 = NBR_difference_capped.unmask(-2);
+  
+}
+
+
+// Possible cleaning of the final Delta-NBR result ********************************************************************************************************
+if (cleaning_select === 'Yes'){
+  var NBR_difference_capped_1 = NBR_difference_capped.where(NBR_difference_capped.lt(threshold_conservative),0).and((NBR_difference_capped.where(NBR_difference_capped.gte(threshold_conservative),1)));
+  var NBR_difference_capped_2 = NBR_difference_capped_1.reduceNeighborhood({
+    reducer: ee.Reducer.sum().unweighted(),
+    kernel: ee.Kernel.circle(kernel_clean_size,'meters'),
+  })
+  var NBR_difference_capped_3 = NBR_difference_capped.where(NBR_difference_capped_2.gte(min_disturbances),1).and((NBR_difference_capped.where(NBR_difference_capped_2.lt(min_disturbances),0))).unmask(-2);
+  var NBR_difference_capped_4 = NBR_difference_capped_3.multiply(NBR_difference_capped);
+  var NBR_difference_Export_cleaned = NBR_difference_capped_4.unmask(-2);
+  
+  // Display the cleaned Delta-NBR result
+  Map.addLayer (NBR_difference_capped_4,{min:[0],max:[0.3],palette:'D3D3D3,Ce0f0f'},'DeltaNBR_all cleaned '+End_second+' - '+Start_base, false);
+}
+
+
+// *********************************************************************************************************************************************************
+// Export of results ***************************************************************************************************************************************
+// *********************************************************************************************************************************************************
+
+if (export_select === 'Yes'){
+
+  // Make a collection of the information that will be exported to a CSV file
+  var features = ee.FeatureCollection([
+    ee.Feature(null, {name: '*************************************************'}),
+    ee.Feature(null, {name: '*************************************************'}),
+    ee.Feature(null, {name: 'Investigation periods:'}),
+    ee.Feature(null, {name: 'Start_base: '+Start_base}),
+    ee.Feature(null, {name: 'End_base: '+End_base}),
+    ee.Feature(null, {name: 'Start_second: '+Start_second}),
+    ee.Feature(null, {name: 'End_second: '+End_second}),
+    ee.Feature(null, {name: '*************************************************'}),
+    ee.Feature(null, {name: 'Sensor selection:'}),
+    ee.Feature(null, {name: 'Sensor: '+Sensor}),
+    ee.Feature(null, {name: 'improve_L8: '+improve_L8}),
+    ee.Feature(null, {name: 'improve_threshold: '+improve_threshold}),
+    ee.Feature(null, {name: '*************************************************'}),
+    ee.Feature(null, {name: 'Geographic area analyzed:'}),
+    ee.Feature(null, {name: 'countryname: '+countryname}),
+    ee.Feature(null, {name: 'country: '+country}),
+    ee.Feature(null, {name: 'center: '+center}),
+    ee.Feature(null, {name: '*************************************************'}),
+    ee.Feature(null, {name: 'Cloud masking:'}),
+    ee.Feature(null, {name: 'QB_select: '+QB_select}),
+    ee.Feature(null, {name: 'Fmask_select: '+Fmask_select}),
+    ee.Feature(null, {name: 'SimpleCloudScore_select: '+SimpleCloudScore_select}),
+    ee.Feature(null, {name: 'UnsureClouds_select: '+UnsureClouds_select}),
+    ee.Feature(null, {name: 'cloud_buffer: '+cloud_buffer}),
+    ee.Feature(null, {name: '*************************************************'}),
+    ee.Feature(null, {name: 'Forest masks:'}),
+    ee.Feature(null, {name: 'forest_mask_select: '+forest_mask_select}),
+    ee.Feature(null, {name: 'roadless_year: '+roadless_year}),
+    ee.Feature(null, {name: 'hansen_treecover: '+hansen_treecover}),
+    ee.Feature(null, {name: '*************************************************'}),
+    ee.Feature(null, {name: 'Self-referencing:'}),
+    ee.Feature(null, {name: 'kernel_size: '+kernel_size}),
+    ee.Feature(null, {name: '*************************************************'}),
+    ee.Feature(null, {name: '(Disturbance-density-related) filtering:'}),
+    ee.Feature(null, {name: 'cleaning_select: '+cleaning_select}),
+    ee.Feature(null, {name: 'export_file: '+'DeltaNBR_all_cleaned_'+countryname.replace(/ /g,'')+'_'+End_second+'--'+Start_base}), 
+    ee.Feature(null, {name: 'threshold_conservative: '+threshold_conservative}),
+    ee.Feature(null, {name: 'kernel_clean_size: '+kernel_clean_size}),
+    ee.Feature(null, {name: 'min_disturbances: '+min_disturbances}),
+    ee.Feature(null, {name: '*************************************************'}),
+    ee.Feature(null, {name: 'Export option:'}),
+    ee.Feature(null, {name: 'export_select: '+export_select}),
+    ee.Feature(null, {name: 'export_file: '+'DeltaNBR_[sensor(s)]_'+countryname.replace(/ /g,'')+'_'+End_second+'--'+Start_base}),    
+    ee.Feature(null, {name: 'export_select_singleNBRs: '+export_select_singleNBRs}),
+    ee.Feature(null, {name: 'export_select_singleNBRdates: '+export_select_singleNBRdates}),
+    ee.Feature(null, {name: '*************************************************'}),
+    ee.Feature(null, {name: '*************************************************'}),
+  ]);
+  
+  Export.table.toDrive({
+    collection: features,
+    description:'Report_DeltaNBR-session_'+countryname.replace(/ /g,'')+'_'+End_second+'--'+Start_base,
+    fileFormat: 'CSV'
+  });
+
+  for (var x = 0 ; x < Delta_X ; x++) {
+    for (var y = 0 ; y < Delta_Y ; y++) {
+      var x_lower_left = (x) + min_X;
+      var y_lower_left = (y) + min_Y;
+      var x_higher_right = (x) + min_X+1;
+      var y_higher_right = (y) + min_Y+1;
+    
+      var region = ee.FeatureCollection(ee.Geometry.Rectangle(x_lower_left, y_lower_left, x_higher_right, y_higher_right));
+      var region_intersect = region.filterBounds(country);
+     
+      if (region_intersect.size().getInfo() > 0){
+        Map.addLayer(region_intersect,{},'Exportbox'+'_'+x+'-'+y,false);
+        if (Sensor === 'L8' || Sensor === 'L78'){
+          Export.image.toDrive({
+            image: NBR_difference_Export_L8,
+            description: 'DeltaNBR_L8_'+countryname.replace(/ /g,'')+'_'+End_second+'--'+Start_base+'__'+x+'-'+y,
+            scale: 30,
+            maxPixels: 1e13,
+            shardSize: 32,
+            region: region_intersect 
+          })
+          if (export_select_singleNBRs === 'Yes'){
+            Export.image.toDrive({
+              image: NBR_Imagecollection_base_normalized_min_Export_L8,
+              description: 'NBR_base_L8_'+countryname.replace(/ /g,'')+'_'+Start_base+'--'+End_base+'__'+x+'-'+y,
+              scale: 30,
+              maxPixels: 1e13,
+              shardSize: 32,
+              region: region_intersect
+            });
+            Export.image.toDrive({
+              image: NBR_Imagecollection_second_normalized_min_Export_L8,
+              description: 'NBR_second_L8_'+countryname.replace(/ /g,'')+'_'+Start_second+'--'+End_second+'__'+x+'-'+y,
+              scale: 30,
+              maxPixels: 1e13,
+              shardSize: 32,
+              region: region_intersect
+            });
+          }
+          if (export_select_singleNBRdates === 'Yes'){
+            Export.image.toDrive({
+              image: NBR_Imagecollection_base_normalized_min_date_Export_L8,
+              description: 'Date_base_L8_'+countryname.replace(/ /g,'')+'_'+Start_base+'--'+End_base+'__'+x+'-'+y,
+              scale: 30,
+              maxPixels: 1e13,
+              shardSize: 32,
+              region: region_intersect
+            });
+            Export.image.toDrive({
+              image: NBR_Imagecollection_second_normalized_min_date_Export_L8,
+              description: 'Date_second_L8_'+countryname.replace(/ /g,'')+'_'+Start_second+'--'+End_second+'__'+x+'-'+y,
+              scale: 30,
+              maxPixels: 1e13,
+              shardSize: 32,
+              region: region_intersect
+            });
+          }
+        }
+        if (Sensor === 'L7' || Sensor === 'L78' || Sensor === 'L57'){
+          Export.image.toDrive({
+            image: NBR_difference_Export_L7,
+            description: 'DeltaNBR_L7_'+countryname.replace(/ /g,'')+'_'+End_second+'--'+Start_base+'__'+x+'-'+y,
+            scale: 30,
+            maxPixels: 1e13,
+            shardSize: 32,
+            region: region_intersect 
+          })
+          if (export_select_singleNBRs === 'Yes'){
+            Export.image.toDrive({
+              image: NBR_Imagecollection_base_normalized_min_Export_L7,
+              description: 'NBR_base_L7_'+countryname.replace(/ /g,'')+'_'+Start_base+'--'+End_base+'__'+x+'-'+y,
+              scale: 30,
+              maxPixels: 1e13,
+              shardSize: 32,
+              region: region_intersect
+            });
+            Export.image.toDrive({
+              image: NBR_Imagecollection_second_normalized_min_Export_L7,
+              description: 'NBR_second_L7_'+countryname.replace(/ /g,'')+'_'+Start_second+'--'+End_second+'__'+x+'-'+y,
+              scale: 30,
+              maxPixels: 1e13,
+              shardSize: 32,
+              region: region_intersect
+            });
+          }
+          if (export_select_singleNBRdates === 'Yes'){
+            Export.image.toDrive({
+              image: NBR_Imagecollection_base_normalized_min_date_Export_L7,
+              description: 'Date_base_L7_'+countryname.replace(/ /g,'')+'_'+Start_base+'--'+End_base+'__'+x+'-'+y,
+              scale: 30,
+              maxPixels: 1e13,
+              shardSize: 32,
+              region: region_intersect
+            });
+            Export.image.toDrive({
+              image: NBR_Imagecollection_second_normalized_min_date_Export_L7,
+              description: 'Date_second_L7_'+countryname.replace(/ /g,'')+'_'+Start_second+'--'+End_second+'__'+x+'-'+y,
+              scale: 30,
+              maxPixels: 1e13,
+              shardSize: 32,
+              region: region_intersect
+            });
+          }
+        }
+        if (Sensor === 'L5' || Sensor === 'L57'){
+          Export.image.toDrive({
+            image: NBR_difference_Export_L5,
+            description: 'DeltaNBR_L5_'+countryname.replace(/ /g,'')+'_'+End_second+'--'+Start_base+'__'+x+'-'+y,
+            scale: 30,
+            maxPixels: 1e13,
+            shardSize: 32,
+            region: region_intersect 
+          })
+          if (export_select_singleNBRs === 'Yes'){
+            Export.image.toDrive({
+              image: NBR_Imagecollection_base_normalized_min_Export_L5,
+              description: 'NBR_base_L5_'+countryname.replace(/ /g,'')+'_'+Start_base+'--'+End_base+'__'+x+'-'+y,
+              scale: 30,
+              maxPixels: 1e13,
+              shardSize: 32,
+              region: region_intersect
+            });
+            Export.image.toDrive({
+              image: NBR_Imagecollection_second_normalized_min_Export_L5,
+              description: 'NBR_second_L5_'+countryname.replace(/ /g,'')+'_'+Start_second+'--'+End_second+'__'+x+'-'+y,
+              scale: 30,
+              maxPixels: 1e13,
+              shardSize: 32,
+              region: region_intersect
+            });
+          }
+          if (export_select_singleNBRdates === 'Yes'){
+            Export.image.toDrive({
+              image: NBR_Imagecollection_base_normalized_min_date_Export_L5,
+              description: 'Date_base_L5_'+countryname.replace(/ /g,'')+'_'+Start_base+'--'+End_base+'__'+x+'-'+y,
+              scale: 30,
+              maxPixels: 1e13,
+              shardSize: 32,
+              region: region_intersect
+            });
+            Export.image.toDrive({
+              image: NBR_Imagecollection_second_normalized_min_date_Export_L5,
+              description: 'Date_second_L5_'+countryname.replace(/ /g,'')+'_'+Start_second+'--'+End_second+'__'+x+'-'+y,
+              scale: 30,
+              maxPixels: 1e13,
+              shardSize: 32,
+              region: region_intersect
+            });
+          }
+        }
+        if (Sensor === 'L78'){
+          Export.image.toDrive({
+            image: NBR_difference_Export_L78,
+            description: 'DeltaNBR_L78_'+countryname.replace(/ /g,'')+'_'+End_second+'--'+Start_base+'__'+x+'-'+y,
+            scale: 30,
+            maxPixels: 1e13,
+            shardSize: 32,
+            region: region_intersect 
+          })
+        }
+        if (Sensor === 'L57'){
+            Export.image.toDrive({
+            image: NBR_difference_Export_L57,
+            description: 'DeltaNBR_L57_'+countryname.replace(/ /g,'')+'_'+End_second+'--'+Start_base+'__'+x+'-'+y,
+            scale: 30,
+            maxPixels: 1e13,
+            shardSize: 32,
+            region: region_intersect 
+          })
+        }
+        if (Sensor === 'S2'){
+          Export.image.toDrive({
+            image: NBR_difference_Export_S2,
+            description: 'DeltaNBR_S2_'+countryname.replace(/ /g,'')+'_'+End_second+'--'+Start_base+'__'+x+'-'+y,
+            scale: 30,
+            maxPixels: 1e13,
+            shardSize: 32,
+            region: region_intersect 
+          })
+          if (export_select_singleNBRs === 'Yes'){
+            Export.image.toDrive({
+              image: NBR_Imagecollection_base_normalized_min_Export_S2,
+              description: 'NBR_base_S2_'+countryname.replace(/ /g,'')+'_'+Start_base+'--'+End_base+'__'+x+'-'+y,
+              scale: 30,
+              maxPixels: 1e13,
+              shardSize: 32,
+              region: region_intersect
+            });
+            Export.image.toDrive({
+              image: NBR_Imagecollection_second_normalized_min_Export_S2,
+              description: 'NBR_second_S2_'+countryname.replace(/ /g,'')+'_'+Start_second+'--'+End_second+'__'+x+'-'+y,
+              scale: 30,
+              maxPixels: 1e13,
+              shardSize: 32,
+              region: region_intersect
+            });
+          }
+          if (export_select_singleNBRdates === 'Yes'){
+            Export.image.toDrive({
+              image: NBR_Imagecollection_base_normalized_min_date_Export_S2,
+              description: 'Date_base_S2_'+countryname.replace(/ /g,'')+'_'+Start_base+'--'+End_base+'__'+x+'-'+y,
+              scale: 30,
+              maxPixels: 1e13,
+              shardSize: 32,
+              region: region_intersect
+            });
+            Export.image.toDrive({
+              image: NBR_Imagecollection_second_normalized_min_date_Export_S2,
+              description: 'Date_second_S2_'+countryname.replace(/ /g,'')+'_'+Start_second+'--'+End_second+'__'+x+'-'+y,
+              scale: 30,
+              maxPixels: 1e13,
+              shardSize: 32,
+              region: region_intersect
+            });
+          }
+        }
+        if (cleaning_select === 'Yes'){
+          Export.image.toDrive({
+            image: NBR_difference_Export_cleaned,
+            description: 'DeltaNBR_all_cleaned_'+countryname.replace(/ /g,'')+'_'+End_second+'--'+Start_base+'__'+x+'-'+y,
+            scale: 30,
+            maxPixels: 1e13,
+            shardSize: 32,
+            region: region_intersect
+          });
+        }
+      }
+    }
+  }
+}
+
+// *********************************************************************************************************************************************************
+// ******************************************************************* END *********************************************************************************
+// *********************************************************************************************************************************************************
+
