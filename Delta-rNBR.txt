@@ -1,5 +1,5 @@
 // *********************************************************************************************************************************************************
-//              Delta-rNBR Forest Canopy Disturbance Mapping Approach (Version 1.5)
+//              Delta-rNBR Forest Canopy Disturbance Mapping Approach (Version 1.6)
 // *********************************************************************************************************************************************************
 // 
 //  * Project:  ReCaREDD - JRC of the European Commission
@@ -112,81 +112,65 @@ var sensorerror_bufferdistance_select = ui.Slider({
 var label_countryname_select = ui.Label('Country or AOI selection:',{fontWeight: 'bold'});
 var countryname_select = ui.Select({
   items: [
-    {label:'Aruba', value:'AA'},{label:'Antigua and Barbuda', value:'AC'},{label:'United Arab Emirates', value:'AE'},
-    {label:'Afghanistan', value:'AF'},{label:'Algeria', value:'AG'},{label:'Azerbaijan', value:'AJ'},{label:'Albania', value:'AL'},
-    {label:'Armenia', value:'AM'},{label:'Andorra', value:'AN'},{label:'Angola', value:'AO'},{label:'American Samoa', value:'AQ'},
-    {label:'Argentina', value:'AR'},{label:'Australia', value:'AS'},{label:'Ashmore and Cartier Islands', value:'AT'},
-    {label:'Austria', value:'AU'},{label:'Anguilla', value:'AV'},{label:'Akrotiri', value:'AX'},{label:'Antarctica', value:'AY'},
-    {label:'Bahrain', value:'BA'},{label:'Barbados', value:'BB'},{label:'Botswana', value:'BC'},{label:'Bermuda', value:'BD'},
-    {label:'Belgium', value:'BE'},{label:'Bahamas, The', value:'BF'},{label:'Bangladesh', value:'BG'},{label:'Belize', value:'BH'},
-    {label:'Bosnia and Herzegovina', value:'BK'},{label:'Bolivia', value:'BL'},{label:'Burma', value:'BM'},{label:'Benin', value:'BN'},
-    {label:'Belarus', value:'BO'},{label:'Solomon Islands', value:'BP'},{label:'Navassa Island', value:'BQ'},{label:'Brazil', value:'BR'},
-    {label:'Bassas da India', value:'BS'},{label:'Bhutan', value:'BT'},{label:'Bulgaria', value:'BU'},{label:'Bouvet Island', value:'BV'},
-    {label:'Brunei', value:'BX'},{label:'Burundi', value:'BY'},{label:'Canada', value:'CA'},{label:'Cambodia', value:'CB'},
-    {label:'Chad', value:'CD'},{label:'Sri Lanka', value:'CE'},{label:'Congo (Brazzaville)', value:'CF'},
-    {label:'Congo (Kinshasa)', value:'CG'},{label:'China', value:'CH'},{label:'Chile', value:'CI'},{label:'Cayman Islands', value:'CJ'},
-    {label:'Cocos (Keeling) Islands', value:'CK'},{label:'Cameroon', value:'CM'},{label:'Comoros', value:'CN'},
-    {label:'Colombia', value:'CO'},{label:'Northern Mariana Islands', value:'CQ'},{label:'Coral Sea Islands', value:'CR'},
-    {label:'Costa Rica', value:'CS'},{label:'Central African Republic', value:'CT'},{label:'Cuba', value:'CU'},
-    {label:'Cape Verde', value:'CV'},{label:'Cook Islands', value:'CW'},{label:'Cyprus', value:'CY'},{label:'Denmark', value:'DK'},
-    {label:'Djibouti', value:'DJ'},{label:'Dominica', value:'DO'},{label:'Jarvis Island', value:'DQ'},
-    {label:'Dominican Republic', value:'DR'},{label:'Dhekelia', value:'DX'},{label:'Ecuador', value:'EC'},{label:'Egypt', value:'EG'},
-    {label:'Ireland', value:'EI'},{label:'Equatorial Guinea', value:'EK'},{label:'Estonia', value:'EN'},{label:'Eritrea', value:'ER'},
-    {label:'El Salvador', value:'ES'},{label:'Ethiopia', value:'ET'},{label:'Europa Island', value:'EU'},
-    {label:'Czech Republic', value:'EZ'},{label:'French Guiana', value:'FG'},{label:'Finland', value:'FI'},{label:'Fiji', value:'FJ'},
-    {label:'Falkland Islands (Islas Malvinas)', value:'FK'},{label:'Micronesia, Federated States of', value:'FM'},{label:'Faroe Islands', value:'FO'},
-    {label:'French Polynesia', value:'FP'},{label:'Baker Island', value:'FQ'},{label:'France', value:'FR'},
-    {label:'French Southern and Antarctic Lands', value:'FS'},{label:'Gambia, The', value:'GA'},{label:'Gabon', value:'GB'},
-    {label:'Georgia', value:'GG'},{label:'Ghana', value:'GH'},{label:'Gibraltar', value:'GI'},{label:'Grenada', value:'GJ'},
-    {label:'Guernsey', value:'GK'},{label:'Greenland', value:'GL'},{label:'Germany', value:'GM'},{label:'Glorioso Islands', value:'GO'},
-    {label:'Guadeloupe', value:'GP'},{label:'Guam', value:'GQ'},{label:'Greece', value:'GR'},{label:'Guatemala', value:'GT'},
-    {label:'Guinea', value:'GV'},{label:'Guyana', value:'GY'},{label:'Gaza Strip', value:'GZ'},{label:'Haiti', value:'HA'},
-    {label:'Hong Kong', value:'HK'},{label:'Heard Island and McDonald Islands', value:'HM'},{label:'Honduras', value:'HO'},
-    {label:'Howland Island', value:'HQ'},{label:'Croatia', value:'HR'},{label:'Hungary', value:'HU'},{label:'Iceland', value:'IC'},
-    {label:'Indonesia', value:'ID'},{label:'Isle of Man', value:'IM'},{label:'India', value:'IN'},
-    {label:'British Indian Ocean Territory', value:'IO'},{label:'Clipperton Island', value:'IP'},{label:'Iran', value:'IR'},
-    {label:'Israel', value:'IS'},{label:'Italy', value:'IT'},{label:'Cote de Ivoire', value:'IV'},{label:'Iraq', value:'IZ'},
-    {label:'Japan', value:'JA'},{label:'Jersey', value:'JE'},{label:'Jamaica', value:'JM'},{label:'Jan Mayen', value:'JN'},
-    {label:'Jordan', value:'JO'},{label:'Johnston Atoll', value:'JQ'},{label:'Juan de Nova Island', value:'JU'},{label:'Kenya', value:'KE'},
-    {label:'Kyrgyzstan', value:'KG'},{label:'Korea, North', value:'KN'},{label:'Kingman Reef', value:'KQ'},{label:'Kiribati', value:'KR'},
-    {label:'Korea, South', value:'KS'},{label:'Christmas Island', value:'KT'},{label:'Kuwait', value:'KU'},{label:'Kosovo', value:'KV'},
-    {label:'Kazakhstan', value:'KZ'},{label:'Laos', value:'LA'},{label:'Lebanon', value:'LE'},{label:'Latvia', value:'LG'},
-    {label:'Lithuania', value:'LH'},{label:'Liberia', value:'LI'},{label:'Slovakia', value:'LO'},{label:'Palmyra Atoll', value:'LQ'},
-    {label:'Liechtenstein', value:'LS'},{label:'Lesotho', value:'LT'},{label:'Luxembourg', value:'LU'},{label:'Libya', value:'LY'},
-    {label:'Madagascar', value:'MA'},{label:'Martinique', value:'MB'},{label:'Macau', value:'MC'},{label:'Moldova', value:'MD'},
-    {label:'Mayotte', value:'MF'},{label:'Mongolia', value:'MG'},{label:'Montserrat', value:'MH'},{label:'Malawi', value:'MI'},
-    {label:'Montenegro', value:'MJ'},{label:'Macedonia', value:'MK'},{label:'Mali', value:'ML'},{label:'Monaco', value:'MN'},
-    {label:'Morocco', value:'MO'},{label:'Mauritius', value:'MP'},{label:'Midway Islands', value:'MQ'},{label:'Mauritania', value:'MR'},
-    {label:'Malta', value:'MT'},{label:'Oman', value:'MU'},{label:'Maldives', value:'MV'},{label:'Mexico', value:'MX'},
-    {label:'Malaysia', value:'MY'},{label:'Mozambique', value:'MZ'},{label:'New Caledonia', value:'NC'},{label:'Niue', value:'NE'},
-    {label:'Norfolk Island', value:'NF'},{label:'Niger', value:'NG'},{label:'Vanuatu', value:'NH'},{label:'Nigeria', value:'NI'},
-    {label:'Netherlands', value:'NL'},{label:'Sint Maarten', value:'NN'},{label:'Norway', value:'NO'},{label:'Nepal', value:'NP'},
-    {label:'Nauru', value:'NR'},{label:'Suriname', value:'NS'},{label:'Nicaragua', value:'NU'},{label:'New Zealand', value:'NZ'},
-    {label:'South Sudan', value:'OD'},{label:'Paraguay', value:'PA'},{label:'Pitcairn Islands', value:'PC'},{label:'Peru', value:'PE'},
-    {label:'Paracel Islands', value:'PF'},{label:'Spratly Islands', value:'PG'},{label:'Etorofu, Habomai, Kunashiri, and Shikotan Islands', value:'PJ'},
-    {label:'Pakistan', value:'PK'},{label:'Poland', value:'PL'},{label:'Panama', value:'PM'},{label:'Portugal', value:'PO'},
-    {label:'Papua New Guinea', value:'PP'},{label:'Palau', value:'PS'},{label:'Guinea-Bissau', value:'PU'},{label:'Qatar', value:'QA'},
-    {label:'Reunion', value:'RE'},{label:'Serbia', value:'RI'},{label:'Marshall Islands', value:'RM'},{label:'Saint Martin', value:'RN'},
-    {label:'Romania', value:'RO'},{label:'Philippines', value:'RP'},{label:'Puerto Rico', value:'RQ'},{label:'Russia', value:'RS'},
-    {label:'Rwanda', value:'RW'},{label:'Saudi Arabia', value:'SA'},{label:'Saint Pierre and Miquelon', value:'SB'},
-    {label:'Saint Kitts and Nevis', value:'SC'},{label:'Seychelles', value:'SE'},{label:'South Africa', value:'SF'},
-    {label:'Senegal', value:'SG'},{label:'Saint Helena, Ascension, and Tristan da Cunha', value:'SH'},{label:'Slovenia', value:'SI'},
-    {label:'Sierra Leone', value:'SL'},{label:'San Marino', value:'SM'},{label:'Singapore', value:'SN'},{label:'Somalia', value:'SO'},
-    {label:'Spain', value:'SP'},{label:'Saint Lucia', value:'ST'},{label:'Sudan', value:'SU'},{label:'Svalbard', value:'SV'},
-    {label:'Sweden', value:'SW'},{label:'South Georgia and South Sandwich Islands', value:'SX'},{label:'Syria', value:'SY'},
-    {label:'Switzerland', value:'SZ'},{label:'Saint Barthelemy', value:'TB'},{label:'Trinidad and Tobago', value:'TD'},
-    {label:'Tromelin Island', value:'TE'},{label:'Thailand', value:'TH'},{label:'Tajikistan', value:'TI'},
-    {label:'Turks and Caicos Islands', value:'TK'},{label:'Tokelau', value:'TL'},{label:'Tonga', value:'TN'},{label:'Togo', value:'TO'},
-    {label:'Sao Tome and Principe', value:'TP'},{label:'Tunisia', value:'TS'},{label:'Timor-Leste', value:'TT'},
-    {label:'Turkey', value:'TU'},{label:'Tuvalu', value:'TV'},{label:'Taiwan', value:'TW'},{label:'Turkmenistan', value:'TX'},
-    {label:'Tanzania', value:'TZ'},{label:'Ukraine', value:'UA'},{label:'Curasao', value:'UC'},{label:'Uganda', value:'UG'},
-    {label:'United Kingdom', value:'UK'},{label:'United States', value:'US'},{label:'Burkina Faso', value:'UV'},
-    {label:'Uruguay', value:'UY'},{label:'Uzbekistan', value:'UZ'},{label:'Saint Vincent and the Grenadines', value:'VC'},
-    {label:'Venezuela', value:'VE'},{label:'British Virgin Islands', value:'VI'},{label:'Vietnam', value:'VM'},
-    {label:'United States Virgin Islands', value:'VQ'},{label:'Vatican City', value:'VT'},{label:'Namibia', value:'WA'},
-    {label:'West Bank', value:'WE'},{label:'Wallis and Futuna', value:'WF'},{label:'Wake Island', value:'WQ'},{label:'Samoa', value:'WS'},
-    {label:'Swaziland', value:'WZ'},{label:'Yemen', value:'YM'},{label:'Zambia', value:'ZA'},{label:'Zimbabwe', value:'ZI'}],
-value: 'CB',
+    {label:'Afghanistan', value:'AF'},{label:'Akrotiri', value:'AX'},{label:'Albania', value:'AL'},{label:'Algeria', value:'AG'},{label:'American Samoa', value:'AQ'},
+    {label:'Andorra', value:'AN'},{label:'Angola', value:'AO'},{label:'Anguilla', value:'AV'},{label:'Antarctica', value:'AY'},{label:'Antigua and Barbuda', value:'AC'},
+    {label:'Argentina', value:'AR'},{label:'Armenia', value:'AM'},{label:'Aruba', value:'AA'},{label:'Ashmore and Cartier Islands', value:'AT'},{label:'Australia', value:'AS'},
+    {label:'Austria', value:'AU'},{label:'Azerbaijan', value:'AJ'},{label:'Bahamas, The', value:'BF'},{label:'Bahrain', value:'BA'},{label:'Baker Island', value:'FQ'},
+    {label:'Bangladesh', value:'BG'},{label:'Barbados', value:'BB'},{label:'Bassas da India', value:'BS'},{label:'Belarus', value:'BO'},{label:'Belgium', value:'BE'},
+    {label:'Belize', value:'BH'},{label:'Benin', value:'BN'},{label:'Bermuda', value:'BD'},{label:'Bhutan', value:'BT'},{label:'Bolivia', value:'BL'},
+    {label:'Bosnia and Herzegovina', value:'BK'},{label:'Botswana', value:'BC'},{label:'Bouvet Island', value:'BV'},{label:'Brazil', value:'BR'},
+    {label:'British Indian Ocean Territory', value:'IO'},{label:'British Virgin Islands', value:'VI'},{label:'Brunei', value:'BX'},{label:'Bulgaria', value:'BU'},
+    {label:'Burkina Faso', value:'UV'},{label:'Burma', value:'BM'},{label:'Burundi', value:'BY'},{label:'Cambodia', value:'CB'},{label:'Cameroon', value:'CM'},
+    {label:'Canada', value:'CA'},{label:'Cape Verde', value:'CV'},{label:'Cayman Islands', value:'CJ'},{label:'Central African Republic', value:'CT'},{label:'Chad', value:'CD'},
+    {label:'Chile', value:'CI'},{label:'China', value:'CH'},{label:'Christmas Island', value:'KT'},{label:'Clipperton Island', value:'IP'},
+    {label:'Cocos (Keeling) Islands', value:'CK'},{label:'Colombia', value:'CO'},{label:'Comoros', value:'CN'},{label:'Congo (Brazzaville)', value:'CF'},
+    {label:'Congo (Kinshasa)', value:'CG'},{label:'Cook Islands', value:'CW'},{label:'Coral Sea Islands', value:'CR'},{label:'Costa Rica', value:'CS'},
+    {label:'Cote de Ivoire', value:'IV'},{label:'Croatia', value:'HR'},{label:'Cuba', value:'CU'},{label:'Curasao', value:'UC'},{label:'Cyprus', value:'CY'},
+    {label:'Czech Republic', value:'EZ'},{label:'Denmark', value:'DK'},{label:'Dhekelia', value:'DX'},{label:'Djibouti', value:'DJ'},{label:'Dominica', value:'DO'},
+    {label:'Dominican Republic', value:'DR'},{label:'Ecuador', value:'EC'},{label:'Egypt', value:'EG'},{label:'El Salvador', value:'ES'},{label:'Equatorial Guinea', value:'EK'},
+    {label:'Eritrea', value:'ER'},{label:'Estonia', value:'EN'},{label:'Ethiopia', value:'ET'},{label:'Etorofu, Habomai, Kunashiri, and Shikotan Islands', value:'PJ'},
+    {label:'Europa Island', value:'EU'},{label:'Falkland Islands (Islas Malvinas)', value:'FK'},{label:'Faroe Islands', value:'FO'},{label:'Fiji', value:'FJ'},
+    {label:'Finland', value:'FI'},{label:'France', value:'FR'},{label:'French Guiana', value:'FG'},{label:'French Polynesia', value:'FP'},
+    {label:'French Southern and Antarctic Lands', value:'FS'},{label:'Gabon', value:'GB'},{label:'Gambia, The', value:'GA'},{label:'Gaza Strip', value:'GZ'},
+    {label:'Georgia', value:'GG'},{label:'Germany', value:'GM'},{label:'Ghana', value:'GH'},{label:'Gibraltar', value:'GI'},{label:'Glorioso Islands', value:'GO'},
+    {label:'Greece', value:'GR'},{label:'Greenland', value:'GL'},{label:'Grenada', value:'GJ'},{label:'Guadeloupe', value:'GP'},{label:'Guam', value:'GQ'},
+    {label:'Guatemala', value:'GT'},{label:'Guernsey', value:'GK'},{label:'Guinea', value:'GV'},{label:'Guinea-Bissau', value:'PU'},{label:'Guyana', value:'GY'},
+    {label:'Haiti', value:'HA'},{label:'Heard Island and McDonald Islands', value:'HM'},{label:'Honduras', value:'HO'},{label:'Hong Kong', value:'HK'},
+    {label:'Howland Island', value:'HQ'},{label:'Hungary', value:'HU'},{label:'Iceland', value:'IC'},{label:'India', value:'IN'},{label:'Indonesia', value:'ID'},
+    {label:'Iran', value:'IR'},{label:'Iraq', value:'IZ'},{label:'Ireland', value:'EI'},{label:'Isle of Man', value:'IM'},{label:'Israel', value:'IS'},{label:'Italy', value:'IT'},
+    {label:'Jamaica', value:'JM'},{label:'Jan Mayen', value:'JN'},{label:'Japan', value:'JA'},{label:'Jarvis Island', value:'DQ'},{label:'Jersey', value:'JE'},
+    {label:'Johnston Atoll', value:'JQ'},{label:'Jordan', value:'JO'},{label:'Juan de Nova Island', value:'JU'},{label:'Kazakhstan', value:'KZ'},{label:'Kenya', value:'KE'},
+    {label:'Kingman Reef', value:'KQ'},{label:'Kiribati', value:'KR'},{label:'Korea, North', value:'KN'},{label:'Korea, South', value:'KS'},{label:'Kosovo', value:'KV'},
+    {label:'Kuwait', value:'KU'},{label:'Kyrgyzstan', value:'KG'},{label:'Laos', value:'LA'},{label:'Latvia', value:'LG'},{label:'Lebanon', value:'LE'},
+    {label:'Lesotho', value:'LT'},{label:'Liberia', value:'LI'},{label:'Libya', value:'LY'},{label:'Liechtenstein', value:'LS'},{label:'Lithuania', value:'LH'},
+    {label:'Luxembourg', value:'LU'},{label:'Macau', value:'MC'},{label:'Macedonia', value:'MK'},{label:'Madagascar', value:'MA'},{label:'Malawi', value:'MI'},
+    {label:'Malaysia', value:'MY'},{label:'Maldives', value:'MV'},{label:'Mali', value:'ML'},{label:'Malta', value:'MT'},{label:'Marshall Islands', value:'RM'},
+    {label:'Martinique', value:'MB'},{label:'Mauritania', value:'MR'},{label:'Mauritius', value:'MP'},{label:'Mayotte', value:'MF'},{label:'Mexico', value:'MX'},
+    {label:'Micronesia, Federated States of', value:'FM'},{label:'Midway Islands', value:'MQ'},{label:'Moldova', value:'MD'},{label:'Monaco', value:'MN'},
+    {label:'Mongolia', value:'MG'},{label:'Montenegro', value:'MJ'},{label:'Montserrat', value:'MH'},{label:'Morocco', value:'MO'},{label:'Mozambique', value:'MZ'},
+    {label:'Namibia', value:'WA'},{label:'Nauru', value:'NR'},{label:'Navassa Island', value:'BQ'},{label:'Nepal', value:'NP'},{label:'Netherlands', value:'NL'},
+    {label:'New Caledonia', value:'NC'},{label:'New Zealand', value:'NZ'},{label:'Nicaragua', value:'NU'},{label:'Niger', value:'NG'},{label:'Nigeria', value:'NI'},
+    {label:'Niue', value:'NE'},{label:'Norfolk Island', value:'NF'},{label:'Northern Mariana Islands', value:'CQ'},{label:'Norway', value:'NO'},{label:'Oman', value:'MU'},
+    {label:'Pakistan', value:'PK'},{label:'Palau', value:'PS'},{label:'Palmyra Atoll', value:'LQ'},{label:'Panama', value:'PM'},{label:'Papua New Guinea', value:'PP'},
+    {label:'Paracel Islands', value:'PF'},{label:'Paraguay', value:'PA'},{label:'Peru', value:'PE'},{label:'Philippines', value:'RP'},{label:'Pitcairn Islands', value:'PC'},
+    {label:'Poland', value:'PL'},{label:'Portugal', value:'PO'},{label:'Puerto Rico', value:'RQ'},{label:'Qatar', value:'QA'},{label:'Reunion', value:'RE'},
+    {label:'Romania', value:'RO'},{label:'Russia', value:'RS'},{label:'Rwanda', value:'RW'},{label:'Saint Barthelemy', value:'TB'},
+    {label:'Saint Helena, Ascension, and Tristan da Cunha', value:'SH'},{label:'Saint Kitts and Nevis', value:'SC'},{label:'Saint Lucia', value:'ST'},
+    {label:'Saint Martin', value:'RN'},{label:'Saint Pierre and Miquelon', value:'SB'},{label:'Saint Vincent and the Grenadines', value:'VC'},{label:'Samoa', value:'WS'},
+    {label:'San Marino', value:'SM'},{label:'Sao Tome and Principe', value:'TP'},{label:'Saudi Arabia', value:'SA'},{label:'Senegal', value:'SG'},{label:'Serbia', value:'RI'},
+    {label:'Seychelles', value:'SE'},{label:'Sierra Leone', value:'SL'},{label:'Singapore', value:'SN'},{label:'Sint Maarten', value:'NN'},{label:'Slovakia', value:'LO'},
+    {label:'Slovenia', value:'SI'},{label:'Solomon Islands', value:'BP'},{label:'Somalia', value:'SO'},{label:'South Africa', value:'SF'},
+    {label:'South Georgia and South Sandwich Islands', value:'SX'},{label:'South Sudan', value:'OD'},{label:'Spain', value:'SP'},{label:'Spratly Islands', value:'PG'},
+    {label:'Sri Lanka', value:'CE'},{label:'Sudan', value:'SU'},{label:'Suriname', value:'NS'},{label:'Svalbard', value:'SV'},{label:'Swaziland', value:'WZ'},
+    {label:'Sweden', value:'SW'},{label:'Switzerland', value:'SZ'},{label:'Syria', value:'SY'},{label:'Taiwan', value:'TW'},{label:'Tajikistan', value:'TI'},
+    {label:'Tanzania', value:'TZ'},{label:'Thailand', value:'TH'},{label:'Timor-Leste', value:'TT'},{label:'Togo', value:'TO'},{label:'Tokelau', value:'TL'},
+    {label:'Tonga', value:'TN'},{label:'Trinidad and Tobago', value:'TD'},{label:'Tromelin Island', value:'TE'},{label:'Tunisia', value:'TS'},{label:'Turkey', value:'TU'},
+    {label:'Turkmenistan', value:'TX'},{label:'Turks and Caicos Islands', value:'TK'},{label:'Tuvalu', value:'TV'},{label:'Uganda', value:'UG'},{label:'Ukraine', value:'UA'},
+    {label:'United Arab Emirates', value:'AE'},{label:'United Kingdom', value:'UK'},{label:'United States Virgin Islands', value:'VQ'},{label:'United States', value:'US'},
+    {label:'Uruguay', value:'UY'},{label:'Uzbekistan', value:'UZ'},{label:'Vanuatu', value:'NH'},{label:'Vatican City', value:'VT'},{label:'Venezuela', value:'VE'},
+    {label:'Vietnam', value:'VM'},{label:'Wake Island', value:'WQ'},{label:'Wallis and Futuna', value:'WF'},{label:'West Bank', value:'WE'},{label:'Yemen', value:'YM'},
+    {label:'Zambia', value:'ZA'},{label:'Zimbabwe', value:'ZI'}],
+	value: 'CB',
   onChange: function(value) {
     var countryname = value
   },
@@ -226,7 +210,7 @@ var cloud_pixel_qa_selection = ui.Checkbox({
   }
 });
 var cloud_shadow_pixel_qa_selection = ui.Checkbox({
-  label: 'Cloud-shadow flag (Pixel-QA band)', 
+  label: 'Cloud-shadow flag V1 (Pixel-QA band)', 
   value: true,
   onChange: function(value) {
     var cloud_shadow_pixel_qa_select = value
@@ -247,7 +231,7 @@ var cirrus_conf_qa_selection = ui.Checkbox({
   }
 });
 var cloud_shadow_sr_cloud_qa_selection  = ui.Checkbox({
-  label: 'Cloud-shadow flag (SR-Cloud-QA band)', 
+  label: 'Cloud-shadow flag V2 (SR-Cloud-QA band)', 
   value: true,
   onChange: function(value) {
     var cloud_shadow_sr_cloud_qa_select = value
@@ -278,18 +262,18 @@ var cloud_buffer_select = ui.Slider({
   },
   style: {width: '380px'}
 });
-var Label_forest_mask_selection = ui.Label('Forest mask selection:',{fontWeight: 'bold'});
+var Label_forest_mask_selection = ui.Label('Forest map selection:',{fontWeight: 'bold'});
 var forest_mask_selection  = ui.Select({
   items: [
-    {label: 'No forest mask', value: 'No_forest_map'},{label: 'Roadless mask (2014 - 2016) (not yet public)', value: 'Roadless_map'},
-    {label: 'Hansen map (2012 - 2016)', value: 'Hansen_map'}],
+    {label: 'No forest map', value: 'No_forest_map'},{label: 'Roadless map (2014 - 2016) (not yet public)', value: 'Roadless_map'},
+    {label: 'Global Forest Cover (2012 - 2016)', value: 'Hansen_map'}],
   value: 'Hansen_map',
   onChange: function(value) {
     var forest_mask_select = value
   },
   style: {width: '200px'}
 });
-var label_forest_mask_year_selection = ui.Label('Year of forest mask (2012 - 2016):');
+var label_forest_mask_year_selection = ui.Label('Year of forest map (2012 - 2016):');
 var forest_mask_year_selection = ui.Slider({
   min: 2012,
   max: 2016, 
@@ -300,7 +284,7 @@ var forest_mask_year_selection = ui.Slider({
   },
   style: {width: '380px'}
 });
-var label_hansen_treecover_selection = ui.Label('Select Hansen treecover percentage (0 - 100%):');
+var label_hansen_treecover_selection = ui.Label('Select Global Forest Cover percentage (0 - 100%):');
 var hansen_treecover_selection = ui.Slider({
   min: 0,
   max: 100, 
@@ -564,7 +548,7 @@ button.onClick(function() {
         var SimpleCloudScore = NoCloudMask;
       }
       if (UnsureClouds_select === true){
-        var UnsureClouds = image.select(['cloud']).lt(13).and(image.select(['cloud']).gte(9));//.and(image.select(BANDS[3]).lte(292));
+        var UnsureClouds = image.select(['cloud']).lt(13).and(image.select(['cloud']).gte(9)).and(image.select(BANDS[3]).lte(292));
       }
       if (UnsureClouds_select === false){
         var UnsureClouds = NoCloudMask;
@@ -583,7 +567,7 @@ button.onClick(function() {
       var toa = sentinel2toa(image);
       var cloud = sentinelCloudScore(toa);
       var shadow = shadowMask(toa,cloud);
-      var mask = cloud.or(shadow).fastDistanceTransform(cloud_buffer,'meters').gt(cloud_buffer);
+      var mask = cloud.or(shadow).fastDistanceTransform(cloud_buffer,'pixels').gt(cloud_buffer);
       return image.updateMask(mask);
     
       // Subfunction of S2 cloud masking
@@ -682,8 +666,8 @@ button.onClick(function() {
     // Masking Step 2: Masking of sensor errors and non-forest areas *******************************************************************************************
     var Masking_2 = function(image,forest_mask,hansen_treecover,forest_mask_year_select,forest_mask_select,BANDS,sensorerror_bufferdistance) {
     
-      var sensorError = (image.select(BANDS[0]).eq(0)).or(image.select(BANDS[1]).eq(0)).or(image.select(BANDS[5]).eq(0)).or(image.select(BANDS[6]).eq(0)).or
-                        (image.select(BANDS[7]).eq(0)).or(image.select(BANDS[8]).eq(0)).add(1).unmask(0); // Important to handle SLC error in Landsat 7
+      var sensorError = (image.select(BANDS[0]).lte(0)).or(image.select(BANDS[1]).lte(0)).or(image.select(BANDS[5]).lte(0)).or(image.select(BANDS[6]).lte(0)).or
+                        (image.select(BANDS[7]).lte(0)).or(image.select(BANDS[8]).lte(0)).add(1).unmask(0); // Important to handle SLC error in Landsat 7
       
       var sensorError_buffer = sensorError.focal_min({
         radius: sensorerror_bufferdistance,
@@ -750,6 +734,7 @@ button.onClick(function() {
       var AOI = geometry;
       var country = ee.FeatureCollection("USDOS/LSIB/2013").filterBounds(geometry);
       var studyarea = AOI;
+      countryname = 'Polygon';
     }
     
     // Preparation of variables for export per Degree-tiles
@@ -860,31 +845,31 @@ button.onClick(function() {
     if (forest_mask_select === 'Hansen_map' && forest_mask_year_select === 2016){
       var Hansen_map = ee.Image("UMD/hansen/global_forest_change_2016_v1_4"); // Hansen map 2016
       var forest_mask = Hansen_map.select('treecover2000').mask(Hansen_map.select('loss').eq(0)).clip(studyarea);
-      Map.addLayer (forest_mask,{min:[0],max:[100],palette:'ffffcc,006600'},'Hansen map 2016',false);
+      Map.addLayer (forest_mask,{min:[0],max:[100],palette:'ffffcc,006600'},'Global forest cover map 2016',false);
     }
     
     if (forest_mask_select === 'Hansen_map' && forest_mask_year_select === 2015){
       var Hansen_map = ee.Image("UMD/hansen/global_forest_change_2015_v1_3"); // Hansen map 2015
       var forest_mask = Hansen_map.select('treecover2000').mask(Hansen_map.select('loss').eq(0)).clip(studyarea);
-      Map.addLayer (forest_mask,{min:[0],max:[100],palette:'ffffcc,006600'},'Hansen map 2015',false);
+      Map.addLayer (forest_mask,{min:[0],max:[100],palette:'ffffcc,006600'},'Global forest cover map 2015',false);
     }
     
     if (forest_mask_select === 'Hansen_map' && forest_mask_year_select === 2014){
       var Hansen_map = ee.Image("UMD/hansen/global_forest_change_2015"); // Hansen map 2014
       var forest_mask = Hansen_map.select('treecover2000').mask(Hansen_map.select('loss').eq(0)).clip(studyarea);
-      Map.addLayer (forest_mask,{min:[0],max:[100],palette:'ffffcc,006600'},'Hansen map 2014',false);
+      Map.addLayer (forest_mask,{min:[0],max:[100],palette:'ffffcc,006600'},'Global forest cover map 2014',false);
     }
     
     if (forest_mask_select === 'Hansen_map' && forest_mask_year_select === 2013){
       var Hansen_map = ee.Image("UMD/hansen/global_forest_change_2014"); // Hansen map 2013
       var forest_mask = Hansen_map.select('treecover2000').mask(Hansen_map.select('loss').eq(0)).clip(studyarea);
-      Map.addLayer (forest_mask,{min:[0],max:[100],palette:'ffffcc,006600'},'Hansen map 2013',false);
+      Map.addLayer (forest_mask,{min:[0],max:[100],palette:'ffffcc,006600'},'Global forest cover map 2013',false);
     }
     
     if (forest_mask_select === 'Hansen_map' && forest_mask_year_select === 2012){
       var Hansen_map = ee.Image("UMD/hansen/global_forest_change_2013"); // Hansen map 2012
       var forest_mask = Hansen_map.select('treecover2000').mask(Hansen_map.select('loss').eq(0)).clip(studyarea);
-      Map.addLayer (forest_mask,{min:[0],max:[100],palette:'ffffcc,006600'},'Hansen map 2012',false);
+      Map.addLayer (forest_mask,{min:[0],max:[100],palette:'ffffcc,006600'},'Global forest cover map 2012',false);
     }
     
     
@@ -1439,44 +1424,44 @@ button.onClick(function() {
         ee.Feature(null, {name: '*************************************************'}),
         ee.Feature(null, {name: 'Sensor selection:'}),
         ee.Feature(null, {name: 'Sensor: '+Sensor}),
-        ee.Feature(null, {name: 'improve_L7: '+improve_L7}),
-        ee.Feature(null, {name: 'improve_threshold: '+improve_threshold}),
+        ee.Feature(null, {name: 'Improve_L7: '+improve_L7}),
+        ee.Feature(null, {name: 'Improve_threshold: '+improve_threshold}),
         ee.Feature(null, {name: '*************************************************'}),
         ee.Feature(null, {name: 'Geographic area analyzed:'}),
-        ee.Feature(null, {name: 'countryname: '+countryname}),
+        ee.Feature(null, {name: 'Countryname: '+countryname}),
         ee.Feature(null, {name: 'AOI: '+AOI_select}),
-        ee.Feature(null, {name: 'center: '+center}),
+        ee.Feature(null, {name: 'Center: '+center}),
         ee.Feature(null, {name: '*************************************************'}),
-        ee.Feature(null, {name: 'cloud masking:'}),
-        ee.Feature(null, {name: 'cloud_pixel_qa_select: '+cloud_pixel_qa_select}),
-        ee.Feature(null, {name: 'cloud_shadow_pixel_qa_select: '+cloud_shadow_pixel_qa_select}),
-        ee.Feature(null, {name: 'cloud_conf_qa_select: '+cloud_conf_qa_select}),
-        ee.Feature(null, {name: 'cloud_shadow_sr_cloud_qa_select: '+cloud_shadow_sr_cloud_qa_select}),
-        ee.Feature(null, {name: 'cirrus_conf_qa_select: '+cirrus_conf_qa_select}),
+        ee.Feature(null, {name: 'Cloud masking:'}),
+        ee.Feature(null, {name: 'Cloud_pixel_qa_select: '+cloud_pixel_qa_select}),
+        ee.Feature(null, {name: 'Cloud_shadow_pixel_qa_select: '+cloud_shadow_pixel_qa_select}),
+        ee.Feature(null, {name: 'Cloud_conf_qa_select: '+cloud_conf_qa_select}),
+        ee.Feature(null, {name: 'Cloud_shadow_sr_cloud_qa_select: '+cloud_shadow_sr_cloud_qa_select}),
+        ee.Feature(null, {name: 'Cirrus_conf_qa_select: '+cirrus_conf_qa_select}),
         ee.Feature(null, {name: 'SimpleCloudScore_select: '+SimpleCloudScore_select}),
         ee.Feature(null, {name: 'UnsureClouds_select: '+UnsureClouds_select}),
-        ee.Feature(null, {name: 'cloud_buffer: '+cloud_buffer}),
+        ee.Feature(null, {name: 'Cloud_buffer: '+cloud_buffer}),
         ee.Feature(null, {name: '*************************************************'}),
-        ee.Feature(null, {name: 'Forest masks:'}),
-        ee.Feature(null, {name: 'forest_mask_select: '+forest_mask_select}),
-        ee.Feature(null, {name: 'forest_mask_year_select: '+forest_mask_year_select}),
-        ee.Feature(null, {name: 'hansen_treecover: '+hansen_treecover}),
+        ee.Feature(null, {name: 'Forest map:'}),
+        ee.Feature(null, {name: 'Forest_map_select: '+forest_mask_select}),
+        ee.Feature(null, {name: 'Forest_map_year_select: '+forest_mask_year_select}),
+        ee.Feature(null, {name: 'Global forest cover: '+hansen_treecover}),
         ee.Feature(null, {name: '*************************************************'}),
         ee.Feature(null, {name: 'Self-referencing:'}),
-        ee.Feature(null, {name: 'kernel_size: '+kernel_size}),
+        ee.Feature(null, {name: 'Kernel_size: '+kernel_size}),
         ee.Feature(null, {name: '*************************************************'}),
-        ee.Feature(null, {name: '(Disturbance-density-related) filtering:'}),
-        ee.Feature(null, {name: 'cleaning_select: '+cleaning_select}),
-        ee.Feature(null, {name: 'export_file: '+'DeltaNBR_all_cleaned_'+countryname.replace(/ /g,'')+'_'+End_second+'--'+Start_base}), 
-        ee.Feature(null, {name: 'threshold_conservative: '+threshold_conservative}),
-        ee.Feature(null, {name: 'kernel_clean_size: '+kernel_clean_size}),
-        ee.Feature(null, {name: 'min_disturbances: '+min_disturbances}),
+        ee.Feature(null, {name: 'Disturbance-density-related filtering:'}),
+        ee.Feature(null, {name: 'Cleaning_select: '+cleaning_select}),
+        ee.Feature(null, {name: 'Export_file: '+'DeltaNBR_all_cleaned_'+countryname.replace(/ /g,'')+'_'+End_second+'--'+Start_base}), 
+        ee.Feature(null, {name: 'Threshold_conservative: '+threshold_conservative}),
+        ee.Feature(null, {name: 'Kernel_clean_size: '+kernel_clean_size}),
+        ee.Feature(null, {name: 'Min_disturbances: '+min_disturbances}),
         ee.Feature(null, {name: '*************************************************'}),
         ee.Feature(null, {name: 'Export option:'}),
-        ee.Feature(null, {name: 'export_select: '+export_select}),
-        ee.Feature(null, {name: 'export_file: '+'DeltaNBR_[sensor(s)]_'+countryname.replace(/ /g,'')+'_'+End_second+'--'+Start_base}),    
-        ee.Feature(null, {name: 'export_select_singleNBRs: '+export_select_singleNBRs}),
-        ee.Feature(null, {name: 'export_select_singleNBRdates: '+export_select_singleNBRdates}),
+        ee.Feature(null, {name: 'Export_select: '+export_select}),
+        ee.Feature(null, {name: 'Export_file: '+'DeltaNBR_[sensor(s)]_'+countryname.replace(/ /g,'')+'_'+End_second+'--'+Start_base}),    
+        ee.Feature(null, {name: 'Export_select_singleNBRs: '+export_select_singleNBRs}),
+        ee.Feature(null, {name: 'Export_select_singleNBRdates: '+export_select_singleNBRdates}),
         ee.Feature(null, {name: '*************************************************'}),
         ee.Feature(null, {name: '*************************************************'}),
       ]);
