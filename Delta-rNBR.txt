@@ -1,5 +1,5 @@
 // *********************************************************************************************************************************************************
-//              Delta-rNBR Forest Canopy Disturbance Mapping Approach (Version 1.6)
+//              Delta-rNBR Forest Canopy Disturbance Mapping Approach (Version 1.7)
 // *********************************************************************************************************************************************************
 // 
 //  * Project:  ReCaREDD - JRC of the European Commission
@@ -11,9 +11,14 @@
 //  *
 //  * Info:     - SR-TOA Combination (SR data with 'simpleCloudScore' band coming from TOA data)
 //  *           - Basic methodology described in the paper published in the Remote Sensing journal:   http://www.mdpi.com/2072-4292/10/4/544
+//  *             (Please refer to this publication as reference when using this script)
+//  *
+//  *           - Please follow me on Twitter to be informed about updates:                           @Kumashi74
 //  *           - Updates to the GEE script (development versions and script manual):                 https://github.com/Andi1974/Forest-degradation-monitoring 
-//  *           - Updates to the GEE script (latest archived version):                                https://doi.org/10.5281/zenodo.1014728
-//  *           - Further information and pre-processed data:                                         http://forobs.jrc.ec.europa.eu/recaredd/
+//  *           - Updates to the GEE script (latest archived version - with script manual):           https://doi.org/10.5281/zenodo.1014728
+//  *
+//  *           - Further information and pre-processed data (in the near future):                    http://forobs.jrc.ec.europa.eu/recaredd/
+//  *
 //  *
 //  * Author:   Andreas Langner (SvB)
 //  * Email:    andi.langner@gmail.com, andreas-johannes.langner@ec.europa.eu
@@ -82,7 +87,7 @@ var Sensor_select = ui.Select({
 });
 var improve_L7_select = ui.Checkbox({
   label: 'Improve Landsat 7',
-  value: true,
+  value: false,
   onChange: function(value) {
     var improve_L7 = value
   }
@@ -265,19 +270,19 @@ var cloud_buffer_select = ui.Slider({
 var Label_forest_mask_selection = ui.Label('Forest map selection:',{fontWeight: 'bold'});
 var forest_mask_selection  = ui.Select({
   items: [
-    {label: 'No forest map', value: 'No_forest_map'},{label: 'Roadless map (2014 - 2016) (not yet public)', value: 'Roadless_map'},
-    {label: 'Global Forest Cover (2012 - 2016)', value: 'Hansen_map'}],
+    {label: 'No forest map', value: 'No_forest_map'},{label: 'Roadless map (1982 - 2017) (not yet public)', value: 'Roadless_map'},
+    {label: 'Global Forest Cover (2012 - 2017)', value: 'Hansen_map'}],
   value: 'Hansen_map',
   onChange: function(value) {
     var forest_mask_select = value
   },
   style: {width: '200px'}
 });
-var label_forest_mask_year_selection = ui.Label('Year of forest map (2012 - 2016):');
+var label_forest_mask_year_selection = ui.Label('Year of forest map (2000 - 2017):');
 var forest_mask_year_selection = ui.Slider({
-  min: 2012,
-  max: 2016, 
-  value: 2016, 
+  min: 1982,
+  max: 2017, 
+  value: 2017, 
   step: 1,
   onChange: function(value) {
     var forest_mask_year_select = value
@@ -842,6 +847,12 @@ button.onClick(function() {
       Map.addLayer (forest_mask,{min:[0],max:[106],palette: PALETTE},'Roadless map',false);
     }
     
+    if (forest_mask_select === 'Hansen_map' && forest_mask_year_select === 2017){
+      var Hansen_map = ee.Image("UMD/hansen/global_forest_change_2017_v1_5"); // Hansen map 2017
+      var forest_mask = Hansen_map.select('treecover2000').mask(Hansen_map.select('loss').eq(0)).clip(studyarea);
+      Map.addLayer (forest_mask,{min:[0],max:[100],palette:'ffffcc,006600'},'Global forest cover map 2017',false);
+    }
+    
     if (forest_mask_select === 'Hansen_map' && forest_mask_year_select === 2016){
       var Hansen_map = ee.Image("UMD/hansen/global_forest_change_2016_v1_4"); // Hansen map 2016
       var forest_mask = Hansen_map.select('treecover2000').mask(Hansen_map.select('loss').eq(0)).clip(studyarea);
@@ -874,6 +885,7 @@ button.onClick(function() {
     
     
     if (Sensor === 'L8' || Sensor === 'L78'){
+      var resolution = 30;
       var BANDS=['B5','B7','fmask','B10','BQA','B2','B3','B4','B6'];
     
       // Data preparation and cloud masking ********************************************************************************************************************
@@ -972,6 +984,7 @@ button.onClick(function() {
     
     
     if (Sensor === 'L7' || Sensor === 'L78' || Sensor === 'L57'){
+      var resolution = 30;
       var BANDS=['B4','B7','fmask','B6','B6','B1','B2','B3','B5'];
     
       // Data preparation and cloud masking ********************************************************************************************************************
@@ -1086,6 +1099,7 @@ button.onClick(function() {
     
     
     if (Sensor === 'L5' || Sensor === 'L57'){
+      var resolution = 30;
       var BANDS=['B4','B7','fmask','B6','B6','B1','B2','B3','B5'];
     
       // Data preparation and cloud masking ********************************************************************************************************************
@@ -1185,6 +1199,7 @@ button.onClick(function() {
     
     
     if (Sensor === 'L4' || Sensor === 'L45'){
+      var resolution = 30;
       var BANDS=['B4','B7','fmask','B6','B6','B1','B2','B3','B5'];
     
       // Data preparation and cloud masking ********************************************************************************************************************
@@ -1317,6 +1332,7 @@ button.onClick(function() {
     
     
     if (Sensor === 'S2'){
+      var resolution = 10;
       var BANDS=['B2','B8','B9','B11','B12','B3','B4','B5','B6'];
     
       // Data preparation and cloud masking ********************************************************************************************************************
@@ -1488,7 +1504,7 @@ button.onClick(function() {
               Export.image.toDrive({
                 image: NBR_difference_Export_L8,
                 description: 'DeltaNBR_L8_'+countryname.replace(/ /g,'')+'_'+End_second+'--'+Start_base+'__'+x+'-'+y,
-                scale: 30,
+                scale: resolution,
                 maxPixels: 1e13,
                 shardSize: 32,
                 region: region_intersect 
@@ -1497,7 +1513,7 @@ button.onClick(function() {
                 Export.image.toDrive({
                   image: NBR_Imagecollection_base_normalized_min_Export_L8,
                   description: 'NBR_base_L8_'+countryname.replace(/ /g,'')+'_'+Start_base+'--'+End_base+'__'+x+'-'+y,
-                  scale: 30,
+                  scale: resolution,
                   maxPixels: 1e13,
                   shardSize: 32,
                   region: region_intersect
@@ -1505,7 +1521,7 @@ button.onClick(function() {
                 Export.image.toDrive({
                   image: NBR_Imagecollection_second_normalized_min_Export_L8,
                   description: 'NBR_second_L8_'+countryname.replace(/ /g,'')+'_'+Start_second+'--'+End_second+'__'+x+'-'+y,
-                  scale: 30,
+                  scale: resolution,
                   maxPixels: 1e13,
                   shardSize: 32,
                   region: region_intersect
@@ -1515,7 +1531,7 @@ button.onClick(function() {
                 Export.image.toDrive({
                   image: NBR_Imagecollection_base_normalized_min_date_Export_L8,
                   description: 'Date_base_L8_'+countryname.replace(/ /g,'')+'_'+Start_base+'--'+End_base+'__'+x+'-'+y,
-                  scale: 30,
+                  scale: resolution,
                   maxPixels: 1e13,
                   shardSize: 32,
                   region: region_intersect
@@ -1523,7 +1539,7 @@ button.onClick(function() {
                 Export.image.toDrive({
                   image: NBR_Imagecollection_second_normalized_min_date_Export_L8,
                   description: 'Date_second_L8_'+countryname.replace(/ /g,'')+'_'+Start_second+'--'+End_second+'__'+x+'-'+y,
-                  scale: 30,
+                  scale: resolution,
                   maxPixels: 1e13,
                   shardSize: 32,
                   region: region_intersect
@@ -1534,7 +1550,7 @@ button.onClick(function() {
               Export.image.toDrive({
                 image: NBR_difference_Export_L7,
                 description: 'DeltaNBR_L7_'+countryname.replace(/ /g,'')+'_'+End_second+'--'+Start_base+'__'+x+'-'+y,
-                scale: 30,
+                scale: resolution,
                 maxPixels: 1e13,
                 shardSize: 32,
                 region: region_intersect 
@@ -1543,7 +1559,7 @@ button.onClick(function() {
                 Export.image.toDrive({
                   image: NBR_Imagecollection_base_normalized_min_Export_L7,
                   description: 'NBR_base_L7_'+countryname.replace(/ /g,'')+'_'+Start_base+'--'+End_base+'__'+x+'-'+y,
-                  scale: 30,
+                  scale: resolution,
                   maxPixels: 1e13,
                   shardSize: 32,
                   region: region_intersect
@@ -1551,7 +1567,7 @@ button.onClick(function() {
                 Export.image.toDrive({
                   image: NBR_Imagecollection_second_normalized_min_Export_L7,
                   description: 'NBR_second_L7_'+countryname.replace(/ /g,'')+'_'+Start_second+'--'+End_second+'__'+x+'-'+y,
-                  scale: 30,
+                  scale: resolution,
                   maxPixels: 1e13,
                   shardSize: 32,
                   region: region_intersect
@@ -1561,7 +1577,7 @@ button.onClick(function() {
                 Export.image.toDrive({
                   image: NBR_Imagecollection_base_normalized_min_date_Export_L7,
                   description: 'Date_base_L7_'+countryname.replace(/ /g,'')+'_'+Start_base+'--'+End_base+'__'+x+'-'+y,
-                  scale: 30,
+                  scale: resolution,
                   maxPixels: 1e13,
                   shardSize: 32,
                   region: region_intersect
@@ -1569,7 +1585,7 @@ button.onClick(function() {
                 Export.image.toDrive({
                   image: NBR_Imagecollection_second_normalized_min_date_Export_L7,
                   description: 'Date_second_L7_'+countryname.replace(/ /g,'')+'_'+Start_second+'--'+End_second+'__'+x+'-'+y,
-                  scale: 30,
+                  scale: resolution,
                   maxPixels: 1e13,
                   shardSize: 32,
                   region: region_intersect
@@ -1580,7 +1596,7 @@ button.onClick(function() {
               Export.image.toDrive({
                 image: NBR_difference_Export_L5,
                 description: 'DeltaNBR_L5_'+countryname.replace(/ /g,'')+'_'+End_second+'--'+Start_base+'__'+x+'-'+y,
-                scale: 30,
+                scale: resolution,
                 maxPixels: 1e13,
                 shardSize: 32,
                 region: region_intersect 
@@ -1589,7 +1605,7 @@ button.onClick(function() {
                 Export.image.toDrive({
                   image: NBR_Imagecollection_base_normalized_min_Export_L5,
                   description: 'NBR_base_L5_'+countryname.replace(/ /g,'')+'_'+Start_base+'--'+End_base+'__'+x+'-'+y,
-                  scale: 30,
+                  scale: resolution,
                   maxPixels: 1e13,
                   shardSize: 32,
                   region: region_intersect
@@ -1597,7 +1613,7 @@ button.onClick(function() {
                 Export.image.toDrive({
                   image: NBR_Imagecollection_second_normalized_min_Export_L5,
                   description: 'NBR_second_L5_'+countryname.replace(/ /g,'')+'_'+Start_second+'--'+End_second+'__'+x+'-'+y,
-                  scale: 30,
+                  scale: resolution,
                   maxPixels: 1e13,
                   shardSize: 32,
                   region: region_intersect
@@ -1607,7 +1623,7 @@ button.onClick(function() {
                 Export.image.toDrive({
                   image: NBR_Imagecollection_base_normalized_min_date_Export_L5,
                   description: 'Date_base_L5_'+countryname.replace(/ /g,'')+'_'+Start_base+'--'+End_base+'__'+x+'-'+y,
-                  scale: 30,
+                  scale: resolution,
                   maxPixels: 1e13,
                   shardSize: 32,
                   region: region_intersect
@@ -1615,7 +1631,7 @@ button.onClick(function() {
                 Export.image.toDrive({
                   image: NBR_Imagecollection_second_normalized_min_date_Export_L5,
                   description: 'Date_second_L5_'+countryname.replace(/ /g,'')+'_'+Start_second+'--'+End_second+'__'+x+'-'+y,
-                  scale: 30,
+                  scale: resolution,
                   maxPixels: 1e13,
                   shardSize: 32,
                   region: region_intersect
@@ -1626,7 +1642,7 @@ button.onClick(function() {
               Export.image.toDrive({
                 image: NBR_difference_Export_L4,
                 description: 'DeltaNBR_L4_'+countryname.replace(/ /g,'')+'_'+End_second+'--'+Start_base+'__'+x+'-'+y,
-                scale: 30,
+                scale: resolution,
                 maxPixels: 1e13,
                 shardSize: 32,
                 region: region_intersect 
@@ -1635,7 +1651,7 @@ button.onClick(function() {
                 Export.image.toDrive({
                   image: NBR_Imagecollection_base_normalized_min_Export_L4,
                   description: 'NBR_base_L4_'+countryname.replace(/ /g,'')+'_'+Start_base+'--'+End_base+'__'+x+'-'+y,
-                  scale: 30,
+                  scale: resolution,
                   maxPixels: 1e13,
                   shardSize: 32,
                   region: region_intersect
@@ -1643,7 +1659,7 @@ button.onClick(function() {
                 Export.image.toDrive({
                   image: NBR_Imagecollection_second_normalized_min_Export_L4,
                   description: 'NBR_second_L4_'+countryname.replace(/ /g,'')+'_'+Start_second+'--'+End_second+'__'+x+'-'+y,
-                  scale: 30,
+                  scale: resolution,
                   maxPixels: 1e13,
                   shardSize: 32,
                   region: region_intersect
@@ -1653,7 +1669,7 @@ button.onClick(function() {
                 Export.image.toDrive({
                   image: NBR_Imagecollection_base_normalized_min_date_Export_L4,
                   description: 'Date_base_L4_'+countryname.replace(/ /g,'')+'_'+Start_base+'--'+End_base+'__'+x+'-'+y,
-                  scale: 30,
+                  scale: resolution,
                   maxPixels: 1e13,
                   shardSize: 32,
                   region: region_intersect
@@ -1661,7 +1677,7 @@ button.onClick(function() {
                 Export.image.toDrive({
                   image: NBR_Imagecollection_second_normalized_min_date_Export_L4,
                   description: 'Date_second_L4_'+countryname.replace(/ /g,'')+'_'+Start_second+'--'+End_second+'__'+x+'-'+y,
-                  scale: 30,
+                  scale: resolution,
                   maxPixels: 1e13,
                   shardSize: 32,
                   region: region_intersect
@@ -1672,7 +1688,7 @@ button.onClick(function() {
               Export.image.toDrive({
                 image: NBR_difference_Export_L78,
                 description: 'DeltaNBR_L78_'+countryname.replace(/ /g,'')+'_'+End_second+'--'+Start_base+'__'+x+'-'+y,
-                scale: 30,
+                scale: resolution,
                 maxPixels: 1e13,
                 shardSize: 32,
                 region: region_intersect 
@@ -1682,7 +1698,7 @@ button.onClick(function() {
                 Export.image.toDrive({
                 image: NBR_difference_Export_L57,
                 description: 'DeltaNBR_L57_'+countryname.replace(/ /g,'')+'_'+End_second+'--'+Start_base+'__'+x+'-'+y,
-                scale: 30,
+                scale: resolution,
                 maxPixels: 1e13,
                 shardSize: 32,
                 region: region_intersect 
@@ -1692,7 +1708,7 @@ button.onClick(function() {
                 Export.image.toDrive({
                 image: NBR_difference_Export_L45,
                 description: 'DeltaNBR_L45_'+countryname.replace(/ /g,'')+'_'+End_second+'--'+Start_base+'__'+x+'-'+y,
-                scale: 30,
+                scale: resolution,
                 maxPixels: 1e13,
                 shardSize: 32,
                 region: region_intersect 
@@ -1702,7 +1718,7 @@ button.onClick(function() {
               Export.image.toDrive({
                 image: NBR_difference_Export_S2,
                 description: 'DeltaNBR_S2_'+countryname.replace(/ /g,'')+'_'+End_second+'--'+Start_base+'__'+x+'-'+y,
-                scale: 30,
+                scale: resolution,
                 maxPixels: 1e13,
                 shardSize: 32,
                 region: region_intersect 
@@ -1711,7 +1727,7 @@ button.onClick(function() {
                 Export.image.toDrive({
                   image: NBR_Imagecollection_base_normalized_min_Export_S2,
                   description: 'NBR_base_S2_'+countryname.replace(/ /g,'')+'_'+Start_base+'--'+End_base+'__'+x+'-'+y,
-                  scale: 30,
+                  scale: resolution,
                   maxPixels: 1e13,
                   shardSize: 32,
                   region: region_intersect
@@ -1719,7 +1735,7 @@ button.onClick(function() {
                 Export.image.toDrive({
                   image: NBR_Imagecollection_second_normalized_min_Export_S2,
                   description: 'NBR_second_S2_'+countryname.replace(/ /g,'')+'_'+Start_second+'--'+End_second+'__'+x+'-'+y,
-                  scale: 30,
+                  scale: resolution,
                   maxPixels: 1e13,
                   shardSize: 32,
                   region: region_intersect
@@ -1729,7 +1745,7 @@ button.onClick(function() {
                 Export.image.toDrive({
                   image: NBR_Imagecollection_base_normalized_min_date_Export_S2,
                   description: 'Date_base_S2_'+countryname.replace(/ /g,'')+'_'+Start_base+'--'+End_base+'__'+x+'-'+y,
-                  scale: 30,
+                  scale: resolution,
                   maxPixels: 1e13,
                   shardSize: 32,
                   region: region_intersect
@@ -1737,7 +1753,7 @@ button.onClick(function() {
                 Export.image.toDrive({
                   image: NBR_Imagecollection_second_normalized_min_date_Export_S2,
                   description: 'Date_second_S2_'+countryname.replace(/ /g,'')+'_'+Start_second+'--'+End_second+'__'+x+'-'+y,
-                  scale: 30,
+                  scale: resolution,
                   maxPixels: 1e13,
                   shardSize: 32,
                   region: region_intersect
@@ -1748,7 +1764,7 @@ button.onClick(function() {
               Export.image.toDrive({
                 image: NBR_difference_Export_cleaned,
                 description: 'DeltaNBR_all_cleaned_'+countryname.replace(/ /g,'')+'_'+End_second+'--'+Start_base+'__'+x+'-'+y,
-                scale: 30,
+                scale: resolution,
                 maxPixels: 1e13,
                 shardSize: 32,
                 region: region_intersect
@@ -1764,4 +1780,3 @@ button.onClick(function() {
 // *********************************************************************************************************************************************************
 // ******************************************************************* END *********************************************************************************
 // *********************************************************************************************************************************************************
-
