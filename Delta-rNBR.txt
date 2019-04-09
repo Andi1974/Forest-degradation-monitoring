@@ -1,5 +1,5 @@
 // *********************************************************************************************************************************************************
-//              Forest Canopy Disturbance Monitoring (FCDM Tool) (former Delta-rNBR, Version 2.0b)
+//              Forest Canopy Disturbance Monitoring (FCDM Tool) (former Delta-rNBR, Version 2.1)
 // *********************************************************************************************************************************************************
 // 
 //  * Project:  ReCaREDD - JRC of the European Commission
