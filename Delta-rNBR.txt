@@ -1,5 +1,5 @@
 // *********************************************************************************************************************************************************
-//              Forest Canopy Disturbance Monitoring (FCDM Tool) (former Delta-rNBR, Version 2.2)
+//              Forest Canopy Disturbance Monitoring (FCDM Tool) (former Delta-rNBR, Version 2.3)
 // *********************************************************************************************************************************************************
 // 
 //  * Project:  ReCaREDD - JRC of the European Commission
@@ -664,9 +664,9 @@ var runFCDM = function(){
     
     
     // Masking Step 2: Masking of sensor errors and non-forest areas *******************************************************************************************
-    var Masking_2 = function(image,forest_mask,hansen_treecover,forest_mask_year_select,forest_mask_select,BANDS,band_1,band_2) {
+    var Masking_2 = function(image,forest_mask,hansen_treecover,forest_mask_year_select,forest_mask_select,band_1,band_2) {
      
-      var image = image.unmask(0).mask(((image.select(band_1).gt(0)).and(image.select(band_2).gt(0))));
+      var image = image.unmask(0)//.mask(((image.select(band_1).gt(-99999)).and(image.select(band_2).gt(-999999))));
       
       if (forest_mask_select === 'No_forest_map'){
         var OUT = image.updateMask(forest_mask.eq(1));
