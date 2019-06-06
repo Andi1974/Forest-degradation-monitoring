@@ -1,5 +1,5 @@
 // *********************************************************************************************************************************************************
-//              Forest Canopy Disturbance Monitoring (FCDM Tool) (former Delta-rNBR, Version 2.3)
+//              Forest Canopy Disturbance Monitoring (FCDM Tool) (former Delta-rNBR, Version 2.4)
 // *********************************************************************************************************************************************************
 // 
 //  * Project:  ReCaREDD - JRC of the European Commission
@@ -1451,9 +1451,9 @@ var runFCDM = function(){
     // ORIGINAL
 
       var Imagecollection_base_2 = Imagecollection_base
-      .map(function(image){return IFORCE_PINO_step2(image.clip(geometry),AnnualMedian1618,true,cloud_buffer,false)}).select([band_1,band_2],['Band_1','Band_2']);
+      .map(function(image){return IFORCE_PINO_step2(image.clip(image.geometry()),AnnualMedian1618,true,cloud_buffer,false)}).select([band_1,band_2],['Band_1','Band_2']);
       var Imagecollection_second_2 = Imagecollection_second
-      .map(function(image){return IFORCE_PINO_step2(image.clip(geometry),AnnualMedian1618,true,cloud_buffer,false)}).select([band_1,band_2],['Band_1','Band_2']);
+      .map(function(image){return IFORCE_PINO_step2(image.clip(image.geometry()),AnnualMedian1618,true,cloud_buffer,false)}).select([band_1,band_2],['Band_1','Band_2']);
 
       // Calculation of single scenes of Base-NBR **************************************************************************************************************
       var NBR_Imagecollection_base = Imagecollection_base_2.map(NBR);
